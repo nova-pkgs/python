@@ -4,9 +4,11 @@
 
 .. module:: netrc
    :synopsis: Loading of .netrc files.
-
 .. moduleauthor:: Eric S. Raymond <esr@snark.thyrsus.com>
 .. sectionauthor:: Eric S. Raymond <esr@snark.thyrsus.com>
+
+
+.. versionadded:: 1.5.2
 
 **Source code:** :source:`Lib/netrc.py`
 
@@ -20,10 +22,8 @@ the Unix :program:`ftp` program and other FTP clients.
 
    A :class:`~netrc.netrc` instance or subclass instance encapsulates data from  a netrc
    file.  The initialization argument, if present, specifies the file to parse.  If
-   no argument is given, the file :file:`.netrc` in the user's home directory --
-   as determined by :func:`os.path.expanduser` -- will be read.  Otherwise,
-   a :exc:`FileNotFoundError` exception will be raised.
-   Parse errors will raise :exc:`NetrcParseError` with diagnostic
+   no argument is given, the file :file:`.netrc` in the user's home directory will
+   be read.  Parse errors will raise :exc:`NetrcParseError` with diagnostic
    information including the file name, line number, and terminating token.
    If no argument is specified on a POSIX system, the presence of passwords in
    the :file:`.netrc` file will raise a :exc:`NetrcParseError` if the file
@@ -32,11 +32,7 @@ the Unix :program:`ftp` program and other FTP clients.
    This implements security behavior equivalent to that of ftp and other
    programs that use :file:`.netrc`.
 
-   .. versionchanged:: 3.4 Added the POSIX permission check.
-
-   .. versionchanged:: 3.7
-      :func:`os.path.expanduser` is used to find the location of the
-      :file:`.netrc` file when *file* is not passed as argument.
+   .. versionchanged:: 2.7.6 Added the POSIX permissions check.
 
 
 .. exception:: NetrcParseError
@@ -84,7 +80,9 @@ Instances of :class:`~netrc.netrc` have public instance variables:
 
 .. note::
 
-   Passwords are limited to a subset of the ASCII character set.  All ASCII
-   punctuation is allowed in passwords, however, note that whitespace and
+   Passwords are limited to a subset of the ASCII character set. Versions of
+   this module prior to 2.3 were extremely limited.  Starting with 2.3, all
+   ASCII punctuation is allowed in passwords.  However, note that whitespace and
    non-printable characters are not allowed in passwords.  This is a limitation
    of the way the .netrc file is parsed and may be removed in the future.
+

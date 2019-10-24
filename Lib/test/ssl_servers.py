@@ -2,20 +2,21 @@ import os
 import sys
 import ssl
 import pprint
-import threading
-import urllib.parse
+import urllib
+import urlparse
 # Rename HTTPServer to _HTTPServer so as to avoid confusion with HTTPSServer.
-from http.server import (HTTPServer as _HTTPServer,
-    SimpleHTTPRequestHandler, BaseHTTPRequestHandler)
+from BaseHTTPServer import HTTPServer as _HTTPServer, BaseHTTPRequestHandler
+from SimpleHTTPServer import SimpleHTTPRequestHandler
 
-from test import support
+from test import test_support as support
+threading = support.import_module("threading")
 
 here = os.path.dirname(__file__)
 
 HOST = support.HOST
 CERTFILE = os.path.join(here, 'keycert.pem')
 
-# This one's based on HTTPServer, which is based on socketserver
+# This one's based on HTTPServer, which is based on SocketServer
 
 class HTTPSServer(_HTTPServer):
 
@@ -41,6 +42,11 @@ class HTTPSServer(_HTTPServer):
             raise
         return sslconn, addr
 
+    def handle_error(self, request, client_address):
+        "Suppose noisy error output by default."
+        if support.verbose:
+            _HTTPServer.handle_error(self, request, client_address)
+
 class RootedHTTPRequestHandler(SimpleHTTPRequestHandler):
     # need to override translate_path to get a known root,
     # instead of using os.curdir, since the test could be
@@ -60,8 +66,8 @@ class RootedHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         """
         # abandon query parameters
-        path = urllib.parse.urlparse(path)[2]
-        path = os.path.normpath(urllib.parse.unquote(path))
+        path = urlparse.urlparse(path)[2]
+        path = os.path.normpath(urllib.unquote(path))
         words = path.split('/')
         words = filter(None, words)
         path = self.root
@@ -146,7 +152,7 @@ class HTTPSServerThread(threading.Thread):
         self.server.shutdown()
 
 
-def make_https_server(case, *, context=None, certfile=CERTFILE,
+def make_https_server(case, context=None, certfile=CERTFILE,
                       host=HOST, handler_class=None):
     if context is None:
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)

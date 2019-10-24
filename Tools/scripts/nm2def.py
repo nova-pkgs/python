@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 """nm2def.py
 
 Helpers to extract symbols from Unix libs and auto-generate
@@ -36,14 +36,13 @@ option to produce this format (since it is the original v7 Unix format).
 """
 import os, sys
 
-PYTHONLIB = 'libpython%d.%d.a' % sys.version_info[:2]
-PC_PYTHONLIB = 'Python%d%d.dll' % sys.version_info[:2]
+PYTHONLIB = 'libpython'+sys.version[:3]+'.a'
+PC_PYTHONLIB = 'Python'+sys.version[0]+sys.version[2]+'.dll'
 NM = 'nm -p -g %s'                      # For Linux, use "nm -g %s"
 
 def symbols(lib=PYTHONLIB,types=('T','C','D')):
 
-    with os.popen(NM % lib) as pipe:
-        lines = pipe.readlines()
+    lines = os.popen(NM % lib).readlines()
     lines = [s.strip() for s in lines]
     symbols = {}
     for line in lines:
@@ -85,7 +84,7 @@ SPECIALS = (
 
 def filter_Python(symbols,specials=SPECIALS):
 
-    for name in list(symbols.keys()):
+    for name in symbols.keys():
         if name[:2] == 'Py' or name[:3] == '_Py':
             pass
         elif name not in specials:
@@ -98,7 +97,7 @@ def main():
     exports = export_list(s)
     f = sys.stdout # open('PC/python_nt.def','w')
     f.write(DEF_TEMPLATE % (exports))
-    # f.close()
+    f.close()
 
 if __name__ == '__main__':
     main()

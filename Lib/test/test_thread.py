@@ -2,15 +2,16 @@ import os
 import unittest
 import random
 from test import support
-import _thread as thread
+thread = support.import_module('thread')
 import time
+import sys
 import weakref
 
 from test import lock_tests
 
 NUMTASKS = 10
 NUMTRIPS = 3
-POLL_SLEEP = 0.010 # seconds = 10 ms
+
 
 _print_mutex = thread.allocate_lock()
 
@@ -18,7 +19,8 @@ def verbose_print(arg):
     """Helper function for printing out debugging output."""
     if support.verbose:
         with _print_mutex:
-            print(arg)
+            print arg
+
 
 
 class BasicThreadTest(unittest.TestCase):
@@ -73,7 +75,7 @@ class ThreadRunningTests(BasicThreadTest):
         thread.stack_size(0)
         self.assertEqual(thread.stack_size(), 0, "stack_size not reset to default")
 
-    @unittest.skipIf(os.name not in ("nt", "posix"), 'test meant for nt and posix')
+    @unittest.skipIf(os.name not in ("nt", "os2", "posix"), 'test meant for nt, os2, and posix')
     def test_nt_and_posix_stack_size(self):
         try:
             thread.stack_size(4096)
@@ -119,7 +121,7 @@ class ThreadRunningTests(BasicThreadTest):
         with support.wait_threads_exit():
             thread.start_new_thread(task, ())
             while not started:
-                time.sleep(POLL_SLEEP)
+                time.sleep(0.01)
             self.assertEqual(thread._count(), orig + 1)
             # Allow the task to finish.
             mut.release()
@@ -130,26 +132,30 @@ class ThreadRunningTests(BasicThreadTest):
             wr = weakref.ref(task, lambda _: done.append(None))
             del task
             while not done:
-                time.sleep(POLL_SLEEP)
+                time.sleep(0.01)
             self.assertEqual(thread._count(), orig)
 
-    def test_unraisable_exception(self):
+    def test_save_exception_state_on_error(self):
+        # See issue #14474
         def task():
             started.release()
-            raise ValueError("task failed")
-
+            raise SyntaxError
+        def mywrite(self, *args):
+            try:
+                raise ValueError
+            except ValueError:
+                pass
+            real_write(self, *args)
+        c = thread._count()
         started = thread.allocate_lock()
-        with support.catch_unraisable_exception() as cm:
+        with support.captured_output("stderr") as stderr:
+            real_write = stderr.write
+            stderr.write = mywrite
+            started.acquire()
             with support.wait_threads_exit():
-                started.acquire()
                 thread.start_new_thread(task, ())
                 started.acquire()
-
-            self.assertEqual(str(cm.unraisable.exc_value), "task failed")
-            self.assertIs(cm.unraisable.object, task)
-            self.assertEqual(cm.unraisable.err_msg,
-                             "Exception ignored in thread started by")
-            self.assertIsNotNone(cm.unraisable.exc_traceback)
+        self.assertIn("Traceback", stderr.getvalue())
 
 
 class Barrier:
@@ -214,6 +220,7 @@ class BarrierTest(BasicThreadTest):
         if finished:
             self.done_mutex.release()
 
+
 class LockTests(lock_tests.LockTests):
     locktype = thread.allocate_lock
 
@@ -222,33 +229,36 @@ class TestForkInThread(unittest.TestCase):
     def setUp(self):
         self.read_fd, self.write_fd = os.pipe()
 
-    @unittest.skipUnless(hasattr(os, 'fork'), 'need os.fork')
+    @unittest.skipIf(sys.platform.startswith('win'),
+                     "This test is only appropriate for POSIX-like systems.")
     @support.reap_threads
     def test_forkinthread(self):
-        status = "not set"
-
+        non_local = {'status': None}
         def thread1():
-            nonlocal status
+            try:
+                pid = os.fork() # fork in a thread
+            except RuntimeError:
+                sys.exit(0) # exit the child
 
-            # fork in a thread
-            pid = os.fork()
-            if pid == 0:
-                # child
-                try:
-                    os.close(self.read_fd)
-                    os.write(self.write_fd, b"OK")
-                finally:
-                    os._exit(0)
-            else:
-                # parent
+            if pid == 0: # child
+                os.close(self.read_fd)
+                os.write(self.write_fd, "OK")
+                # Exiting the thread normally in the child process can leave
+                # any additional threads (such as the one started by
+                # importing _tkinter) still running, and this can prevent
+                # the half-zombie child process from being cleaned up. See
+                # Issue #26456.
+                os._exit(0)
+            else: # parent
                 os.close(self.write_fd)
                 pid, status = os.waitpid(pid, 0)
+                non_local['status'] = status
 
         with support.wait_threads_exit():
             thread.start_new_thread(thread1, ())
-            self.assertEqual(os.read(self.read_fd, 2), b"OK",
+            self.assertEqual(os.read(self.read_fd, 2), "OK",
                              "Unable to fork() in thread")
-        self.assertEqual(status, 0)
+        self.assertEqual(non_local['status'], 0)
 
     def tearDown(self):
         try:
@@ -262,5 +272,9 @@ class TestForkInThread(unittest.TestCase):
             pass
 
 
+def test_main():
+    support.run_unittest(ThreadRunningTests, BarrierTest, LockTests,
+                              TestForkInThread)
+
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

@@ -1,8 +1,5 @@
 import sys
-from test import list_tests
-from test.support import cpython_only
-import pickle
-import unittest
+from test import test_support, list_tests
 
 class ListTest(list_tests.CommonTest):
     type2test = list
@@ -17,8 +14,6 @@ class ListTest(list_tests.CommonTest):
         self.assertEqual(list((0, 1, 2, 3)), [0, 1, 2, 3])
         self.assertEqual(list(''), [])
         self.assertEqual(list('spam'), ['s', 'p', 'a', 'm'])
-        self.assertEqual(list(x for x in range(10) if x % 2),
-                         [1, 3, 5, 7, 9])
 
         if sys.maxsize == 0x7fffffff:
             # This test can currently only work on 32-bit machines.
@@ -35,19 +30,15 @@ class ListTest(list_tests.CommonTest):
             # thread for the details:
 
             #     http://sources.redhat.com/ml/newlib/2002/msg00369.html
-            self.assertRaises(MemoryError, list, range(sys.maxsize // 2))
+            self.assertRaises(MemoryError, list, xrange(sys.maxint // 2))
 
         # This code used to segfault in Py2.4a3
         x = []
         x.extend(-y for y in x)
         self.assertEqual(x, [])
 
-    def test_keyword_args(self):
-        with self.assertRaisesRegex(TypeError, 'keyword argument'):
-            list(sequence=[])
-
     def test_truth(self):
-        super().test_truth()
+        super(ListTest, self).test_truth()
         self.assertTrue(not [])
         self.assertTrue([42])
 
@@ -55,7 +46,7 @@ class ListTest(list_tests.CommonTest):
         self.assertTrue([] is not [])
 
     def test_len(self):
-        super().test_len()
+        super(ListTest, self).test_len()
         self.assertEqual(len([]), 0)
         self.assertEqual(len([0]), 1)
         self.assertEqual(len([0, 1, 2]), 3)
@@ -68,103 +59,20 @@ class ListTest(list_tests.CommonTest):
         self.assertRaises((MemoryError, OverflowError), mul, lst, n)
         self.assertRaises((MemoryError, OverflowError), imul, lst, n)
 
-    def test_repr_large(self):
-        # Check the repr of large list objects
-        def check(n):
-            l = [0] * n
-            s = repr(l)
-            self.assertEqual(s,
-                '[' + ', '.join(['0'] * n) + ']')
-        check(10)       # check our checking code
-        check(1000000)
+def test_main(verbose=None):
+    test_support.run_unittest(ListTest)
 
-    def test_iterator_pickle(self):
-        orig = self.type2test([4, 5, 6, 7])
-        data = [10, 11, 12, 13, 14, 15]
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            # initial iterator
-            itorig = iter(orig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data)
+    # verify reference counting
+    import sys
+    if verbose and hasattr(sys, "gettotalrefcount"):
+        import gc
+        counts = [None] * 5
+        for i in xrange(len(counts)):
+            test_support.run_unittest(ListTest)
+            gc.collect()
+            counts[i] = sys.gettotalrefcount()
+        print counts
 
-            # running iterator
-            next(itorig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data[1:])
-
-            # empty iterator
-            for i in range(1, len(orig)):
-                next(itorig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data[len(orig):])
-
-            # exhausted iterator
-            self.assertRaises(StopIteration, next, itorig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(list(it), [])
-
-    def test_reversed_pickle(self):
-        orig = self.type2test([4, 5, 6, 7])
-        data = [10, 11, 12, 13, 14, 15]
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            # initial iterator
-            itorig = reversed(orig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data[len(orig)-1::-1])
-
-            # running iterator
-            next(itorig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), data[len(orig)-2::-1])
-
-            # empty iterator
-            for i in range(1, len(orig)):
-                next(itorig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(type(it), type(itorig))
-            self.assertEqual(list(it), [])
-
-            # exhausted iterator
-            self.assertRaises(StopIteration, next, itorig)
-            d = pickle.dumps((itorig, orig), proto)
-            it, a = pickle.loads(d)
-            a[:] = data
-            self.assertEqual(list(it), [])
-
-    def test_no_comdat_folding(self):
-        # Issue 8847: In the PGO build, the MSVC linker's COMDAT folding
-        # optimization causes failures in code that relies on distinct
-        # function addresses.
-        class L(list): pass
-        with self.assertRaises(TypeError):
-            (3,) + L([1,2])
-
-    @cpython_only
-    def test_preallocation(self):
-        iterable = [0] * 10
-        iter_size = sys.getsizeof(iterable)
-
-        self.assertEqual(iter_size, sys.getsizeof(list([0] * 10)))
-        self.assertEqual(iter_size, sys.getsizeof(list(range(10))))
 
 if __name__ == "__main__":
-    unittest.main()
+    test_main(verbose=True)

@@ -32,11 +32,10 @@ several thousand components (from individual programs and modules to
 packages and entire application development frameworks), available from
 the `Python Package Index <https://pypi.org>`_.
 
-.. We don't use :numbered: option for the TOC below as it enforces
-   numbered sections for the entire stdlib docs.  If desired,
-   :numbered: can be enabled on a per-module basis.
+
 .. toctree::
    :maxdepth: 2
+   :numbered:
 
    intro.rst
    functions.rst
@@ -44,19 +43,16 @@ the `Python Package Index <https://pypi.org>`_.
    stdtypes.rst
    exceptions.rst
 
-   text.rst
-   binary.rst
+   strings.rst
    datatypes.rst
    numeric.rst
-   functional.rst
    filesys.rst
    persistence.rst
    archiving.rst
    fileformats.rst
    crypto.rst
    allos.rst
-   concurrency.rst
-   contextvars.rst
+   someos.rst
    ipc.rst
    netdata.rst
    markup.rst
@@ -70,10 +66,15 @@ the `Python Package Index <https://pypi.org>`_.
    distribution.rst
    python.rst
    custominterp.rst
+   restricted.rst
    modules.rst
    language.rst
+   compiler.rst
    misc.rst
    windows.rst
    unix.rst
-   superseded.rst
+   mac.rst
+   macosa.rst
+   sgi.rst
+   sun.rst
    undoc.rst

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _function-objects:
 
@@ -34,19 +34,8 @@ There are a few functions specific to Python functions.
    Return a new function object associated with the code object *code*. *globals*
    must be a dictionary with the global variables accessible to the function.
 
-   The function's docstring and name are retrieved from the code object. *__module__*
-   is retrieved from *globals*. The argument defaults, annotations and closure are
-   set to *NULL*. *__qualname__* is set to the same value as the function's name.
-
-
-.. c:function:: PyObject* PyFunction_NewWithQualName(PyObject *code, PyObject *globals, PyObject *qualname)
-
-   As :c:func:`PyFunction_New`, but also allows setting the function object's
-   ``__qualname__`` attribute.  *qualname* should be a unicode object or NULL;
-   if NULL, the ``__qualname__`` attribute is set to the same value as its
-   ``__name__`` attribute.
-
-   .. versionadded:: 3.3
+   The function's docstring, name and *__module__* are retrieved from the code
+   object, the argument defaults and closure are set to *NULL*.
 
 
 .. c:function:: PyObject* PyFunction_GetCode(PyObject *op)
@@ -90,19 +79,5 @@ There are a few functions specific to Python functions.
 
    Set the closure associated with the function object *op*. *closure* must be
    *Py_None* or a tuple of cell objects.
-
-   Raises :exc:`SystemError` and returns ``-1`` on failure.
-
-
-.. c:function:: PyObject *PyFunction_GetAnnotations(PyObject *op)
-
-   Return the annotations of the function object *op*. This can be a
-   mutable dictionary or *NULL*.
-
-
-.. c:function:: int PyFunction_SetAnnotations(PyObject *op, PyObject *annotations)
-
-   Set the annotations for the function object *op*. *annotations*
-   must be a dictionary or *Py_None*.
 
    Raises :exc:`SystemError` and returns ``-1`` on failure.

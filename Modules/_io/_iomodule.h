@@ -19,13 +19,8 @@ extern PyTypeObject PyBufferedRandom_Type;
 extern PyTypeObject PyTextIOWrapper_Type;
 extern PyTypeObject PyIncrementalNewlineDecoder_Type;
 
-#ifndef Py_LIMITED_API
-#ifdef MS_WINDOWS
-extern PyTypeObject PyWindowsConsoleIO_Type;
-PyAPI_DATA(PyObject *) _PyWindowsConsoleIO_Type;
-#define PyWindowsConsoleIO_Check(op) (PyObject_TypeCheck((op), (PyTypeObject*)_PyWindowsConsoleIO_Type))
-#endif /* MS_WINDOWS */
-#endif /* Py_LIMITED_API */
+
+extern int _PyIO_ConvertSsize_t(PyObject *, void *);
 
 /* These functions are used as METH_NOARGS methods, are normally called
  * with args=NULL, and return a new reference.
@@ -55,8 +50,8 @@ extern PyObject *_PyIncrementalNewlineDecoder_decode(
    `*consumed`.
    If not found, returns -1 and sets `*consumed` to the number of characters
    which can be safely put aside until another search.
-
-   NOTE: for performance reasons, `end` must point to a NUL character ('\0').
+   
+   NOTE: for performance reasons, `end` must point to a NUL character ('\0'). 
    Otherwise, the function will scan further and return garbage.
 
    There are three modes, in order of priority:
@@ -65,9 +60,9 @@ extern PyObject *_PyIncrementalNewlineDecoder_decode(
    * Otherwise, the line ending is specified by readnl, a str object */
 extern Py_ssize_t _PyIO_find_line_ending(
     int translated, int universal, PyObject *readnl,
-    int kind, const char *start, const char *end, Py_ssize_t *consumed);
+    Py_UNICODE *start, Py_UNICODE *end, Py_ssize_t *consumed);
 
-/* Return 1 if an OSError with errno == EINTR is set (and then
+/* Return 1 if an EnvironmentError with errno == EINTR is set (and then
    clears the error indicator), 0 otherwise.
    Should only be called when PyErr_Occurred() is true.
 */
@@ -75,11 +70,25 @@ extern int _PyIO_trap_eintr(void);
 
 #define DEFAULT_BUFFER_SIZE (8 * 1024)  /* bytes */
 
+typedef struct {
+    /* This is the equivalent of PyException_HEAD in 3.x */
+    PyObject_HEAD
+    PyObject *dict;
+    PyObject *args;
+    PyObject *message;
+
+    PyObject *myerrno;
+    PyObject *strerror;
+    PyObject *filename; /* Not used, but part of the IOError object */
+    Py_ssize_t written;
+} PyBlockingIOErrorObject;
+extern PyObject *PyExc_BlockingIOError;
+
 /*
  * Offset type for positioning.
  */
 
-/* Printing a variable of type off_t (with e.g., PyUnicode_FromFormat)
+/* Printing a variable of type off_t (with e.g., PyString_FromFormat)
    correctly and without producing compiler warnings is surprisingly painful.
    We identify an integer type whose size matches off_t and then: (1) cast the
    off_t to that integer type and (2) use the appropriate conversion
@@ -87,15 +96,15 @@ extern int _PyIO_trap_eintr(void);
    long with "%lld" even when both long and long long have the same
    precision. */
 
-#ifdef MS_WINDOWS
+#if defined(MS_WIN64) || defined(MS_WINDOWS)
 
 /* Windows uses long long for offsets */
-typedef long long Py_off_t;
+typedef PY_LONG_LONG Py_off_t;
 # define PyLong_AsOff_t     PyLong_AsLongLong
 # define PyLong_FromOff_t   PyLong_FromLongLong
-# define PY_OFF_T_MAX       LLONG_MAX
-# define PY_OFF_T_MIN       LLONG_MIN
-# define PY_OFF_T_COMPAT    long long    /* type compatible with off_t */
+# define PY_OFF_T_MAX       PY_LLONG_MAX
+# define PY_OFF_T_MIN       PY_LLONG_MIN
+# define PY_OFF_T_COMPAT    PY_LONG_LONG /* type compatible with off_t */
 # define PY_PRIdOFF         "lld"        /* format to use for that type */
 
 #else
@@ -109,12 +118,12 @@ typedef off_t Py_off_t;
 # define PY_OFF_T_MIN       PY_SSIZE_T_MIN
 # define PY_OFF_T_COMPAT    Py_ssize_t
 # define PY_PRIdOFF         "zd"
-#elif (SIZEOF_OFF_T == SIZEOF_LONG_LONG)
+#elif (HAVE_LONG_LONG && SIZEOF_OFF_T == SIZEOF_LONG_LONG)
 # define PyLong_AsOff_t     PyLong_AsLongLong
 # define PyLong_FromOff_t   PyLong_FromLongLong
-# define PY_OFF_T_MAX       LLONG_MAX
-# define PY_OFF_T_MIN       LLONG_MIN
-# define PY_OFF_T_COMPAT    long long
+# define PY_OFF_T_MAX       PY_LLONG_MAX
+# define PY_OFF_T_MIN       PY_LLONG_MIN
+# define PY_OFF_T_COMPAT    PY_LONG_LONG
 # define PY_PRIdOFF         "lld"
 #elif (SIZEOF_OFF_T == SIZEOF_LONG)
 # define PyLong_AsOff_t     PyLong_AsLong
@@ -133,26 +142,9 @@ extern Py_off_t PyNumber_AsOff_t(PyObject *item, PyObject *err);
 
 /* Implementation details */
 
-/* IO module structure */
-
-extern PyModuleDef _PyIO_Module;
-
-typedef struct {
-    int initialized;
-    PyObject *locale_module;
-
-    PyObject *unsupported_operation;
-} _PyIO_State;
-
-#define IO_MOD_STATE(mod) ((_PyIO_State *)PyModule_GetState(mod))
-#define IO_STATE() _PyIO_get_module_state()
-
-extern _PyIO_State *_PyIO_get_module_state(void);
-extern PyObject *_PyIO_get_locale_module(_PyIO_State *);
-
-#ifdef MS_WINDOWS
-extern char _PyIO_get_console_type(PyObject *);
-#endif
+extern PyObject *_PyIO_os_module;
+extern PyObject *_PyIO_locale_module;
+extern PyObject *_PyIO_unsupported_operation;
 
 extern PyObject *_PyIO_str_close;
 extern PyObject *_PyIO_str_closed;
@@ -164,11 +156,9 @@ extern PyObject *_PyIO_str_getstate;
 extern PyObject *_PyIO_str_isatty;
 extern PyObject *_PyIO_str_newlines;
 extern PyObject *_PyIO_str_nl;
-extern PyObject *_PyIO_str_peek;
 extern PyObject *_PyIO_str_read;
 extern PyObject *_PyIO_str_read1;
 extern PyObject *_PyIO_str_readable;
-extern PyObject *_PyIO_str_readall;
 extern PyObject *_PyIO_str_readinto;
 extern PyObject *_PyIO_str_readline;
 extern PyObject *_PyIO_str_reset;
@@ -182,5 +172,4 @@ extern PyObject *_PyIO_str_write;
 
 extern PyObject *_PyIO_empty_str;
 extern PyObject *_PyIO_empty_bytes;
-
-extern PyTypeObject _PyBytesIOBuffer_Type;
+extern PyObject *_PyIO_zero;

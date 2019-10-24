@@ -4,15 +4,13 @@
 .. module:: msilib
    :platform: Windows
    :synopsis: Creation of Microsoft Installer files, and CAB files.
-
 .. moduleauthor:: Martin v. Löwis <martin@v.loewis.de>
 .. sectionauthor:: Martin v. Löwis <martin@v.loewis.de>
 
-**Source code:** :source:`Lib/msilib/__init__.py`
 
 .. index:: single: msi
 
---------------
+.. versionadded:: 2.5
 
 The :mod:`msilib` supports the creation of Microsoft Installer (``.msi``) files.
 Because these files often contain an embedded "cabinet" file (``.cab``), it also
@@ -92,7 +90,8 @@ structures.
    record according to the schema of the table.  For optional fields,
    ``None`` can be passed.
 
-   Field values can be ints, strings, or instances of the Binary class.
+   Field values can be int or long numbers, strings, or instances of the Binary
+   class.
 
 
 .. class:: Binary(filename)
@@ -124,9 +123,9 @@ structures.
 
 .. seealso::
 
-   `FCICreate <https://msdn.microsoft.com/en-us/library/bb432265.aspx>`_
-   `UuidCreate <https://msdn.microsoft.com/en-us/library/windows/desktop/aa379205.aspx>`_
-   `UuidToString <https://msdn.microsoft.com/en-us/library/windows/desktop/aa379352.aspx>`_
+   `FCICreateFile <https://msdn.microsoft.com/library?url=/library/en-us/devnotes/winprog/fcicreate.asp>`_
+   `UuidCreate <https://msdn.microsoft.com/library?url=/library/en-us/rpc/rpc/uuidcreate.asp>`_
+   `UuidToString <https://msdn.microsoft.com/library?url=/library/en-us/rpc/rpc/uuidtostring.asp>`_
 
 .. _database-objects:
 
@@ -152,18 +151,12 @@ Database Objects
    :c:func:`MsiGetSummaryInformation`.  *count* is the maximum number of updated
    values.
 
-.. method:: Database.Close()
-
-   Close the database object, through :c:func:`MsiCloseHandle`.
-
-   .. versionadded:: 3.7
 
 .. seealso::
 
-   `MSIDatabaseOpenView <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370082.aspx>`_
-   `MSIDatabaseCommit <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370075.aspx>`_
-   `MSIGetSummaryInformation <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370301.aspx>`_
-   `MsiCloseHandle <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370067.aspx>`_
+   `MSIDatabaseOpenView <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msidatabaseopenview.asp>`_
+   `MSIDatabaseCommit <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msidatabasecommit.asp>`_
+   `MSIGetSummaryInformation <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msigetsummaryinformation.asp>`_
 
 .. _view-objects:
 
@@ -209,11 +202,11 @@ View Objects
 
 .. seealso::
 
-   `MsiViewExecute <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370513.aspx>`_
-   `MSIViewGetColumnInfo <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370516.aspx>`_
-   `MsiViewFetch <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370514.aspx>`_
-   `MsiViewModify <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370519.aspx>`_
-   `MsiViewClose <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370510.aspx>`_
+   `MsiViewExecute <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msiviewexecute.asp>`_
+   `MSIViewGetColumnInfo <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msiviewgetcolumninfo.asp>`_
+   `MsiViewFetch <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msiviewfetch.asp>`_
+   `MsiViewModify <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msiviewmodify.asp>`_
+   `MsiViewClose <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msiviewclose.asp>`_
 
 .. _summary-objects:
 
@@ -253,10 +246,10 @@ Summary Information Objects
 
 .. seealso::
 
-   `MsiSummaryInfoGetProperty <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370409.aspx>`_
-   `MsiSummaryInfoGetPropertyCount <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370488.aspx>`_
-   `MsiSummaryInfoSetProperty <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370491.aspx>`_
-   `MsiSummaryInfoPersist <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370490.aspx>`_
+   `MsiSummaryInfoGetProperty <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msisummaryinfogetproperty.asp>`_
+   `MsiSummaryInfoGetPropertyCount <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msisummaryinfogetpropertycount.asp>`_
+   `MsiSummaryInfoSetProperty <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msisummaryinfosetproperty.asp>`_
+   `MsiSummaryInfoPersist <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msisummaryinfopersist.asp>`_
 
 .. _record-objects:
 
@@ -307,11 +300,11 @@ Record Objects
 
 .. seealso::
 
-   `MsiRecordGetFieldCount <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370366.aspx>`_
-   `MsiRecordSetString <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370373.aspx>`_
-   `MsiRecordSetStream <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370372.aspx>`_
-   `MsiRecordSetInteger <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370371.aspx>`_
-   `MsiRecordClearData <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370364.aspx>`_
+   `MsiRecordGetFieldCount <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msirecordgetfieldcount.asp>`_
+   `MsiRecordSetString <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msirecordsetstring.asp>`_
+   `MsiRecordSetStream <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msirecordsetstream.asp>`_
+   `MsiRecordSetInteger <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msirecordsetinteger.asp>`_
+   `MsiRecordClear <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/msirecordclear.asp>`_
 
 .. _msi-errors:
 
@@ -372,7 +365,7 @@ Directory Objects
    the default flags that new components get.
 
 
-   .. method:: start_component(component=None, feature=None, flags=None, keyfile=None, uuid=None)
+   .. method:: start_component([component[, feature[, flags[, keyfile[, uuid]]]]])
 
       Add an entry to the Component table, and make this component the current
       component for this directory. If no component name is given, the directory
@@ -381,7 +374,7 @@ Directory Objects
       is given, the KeyPath is left null in the Component table.
 
 
-   .. method:: add_file(file, src=None, version=None, language=None)
+   .. method:: add_file(file[, src[, version[, language]]])
 
       Add a file to the current component of the directory, starting a new one
       if there is no current component. By default, the file name in the source
@@ -390,7 +383,7 @@ Directory Objects
       and a *language* can be specified for the entry in the File table.
 
 
-   .. method:: glob(pattern, exclude=None)
+   .. method:: glob(pattern[, exclude])
 
       Add a list of files to the current component as specified in the glob
       pattern.  Individual files can be excluded in the *exclude* list.
@@ -398,15 +391,15 @@ Directory Objects
 
    .. method:: remove_pyc()
 
-      Remove ``.pyc`` files on uninstall.
+      Remove ``.pyc``/``.pyo`` files on uninstall.
 
 
 .. seealso::
 
-   `Directory Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368295.aspx>`_
-   `File Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368596.aspx>`_
-   `Component Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368007.aspx>`_
-   `FeatureComponents Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368579.aspx>`_
+   `Directory Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/directory_table.asp>`_
+   `File Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/file_table.asp>`_
+   `Component Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/component_table.asp>`_
+   `FeatureComponents Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/featurecomponents_table.asp>`_
 
 .. _features:
 
@@ -414,7 +407,7 @@ Features
 --------
 
 
-.. class:: Feature(db, id, title, desc, display, level=1, parent=None, directory=None,  attributes=0)
+.. class:: Feature(database, id, title, desc, display[, level=1[, parent[, directory[,  attributes=0]]]])
 
    Add a new record to the ``Feature`` table, using the values *id*, *parent.id*,
    *title*, *desc*, *display*, *level*, *directory*, and *attributes*. The
@@ -431,7 +424,7 @@ Features
 
 .. seealso::
 
-   `Feature Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368585.aspx>`_
+   `Feature Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/feature_table.asp>`_
 
 .. _msi-gui:
 
@@ -450,7 +443,7 @@ for installing Python packages.
    belongs to, and *name* is the control's name.
 
 
-   .. method:: event(event, argument, condition=1, ordering=None)
+   .. method:: event(event, argument[,  condition=1[, ordering]])
 
       Make an entry into the ``ControlEvent`` table for this control.
 
@@ -471,10 +464,10 @@ for installing Python packages.
    that gets set when a radio button is selected.
 
 
-   .. method:: add(name, x, y, width, height, text, value=None)
+   .. method:: add(name, x, y, width, height, text [, value])
 
       Add a radio button named *name* to the group, at the coordinates *x*, *y*,
-      *width*, *height*, and with the label *text*. If *value* is ``None``, it
+      *width*, *height*, and with the label *text*. If *value* is omitted, it
       defaults to *name*.
 
 
@@ -526,13 +519,13 @@ for installing Python packages.
 
 .. seealso::
 
-   `Dialog Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368286.aspx>`_
-   `Control Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368044.aspx>`_
-   `Control Types <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368039.aspx>`_
-   `ControlCondition Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368035.aspx>`_
-   `ControlEvent Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368037.aspx>`_
-   `EventMapping Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa368559.aspx>`_
-   `RadioButton Table <https://msdn.microsoft.com/en-us/library/windows/desktop/aa370962.aspx>`_
+   `Dialog Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/dialog_table.asp>`_
+   `Control Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/control_table.asp>`_
+   `Control Types <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/controls.asp>`_
+   `ControlCondition Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/controlcondition_table.asp>`_
+   `ControlEvent Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/controlevent_table.asp>`_
+   `EventMapping Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/eventmapping_table.asp>`_
+   `RadioButton Table <https://msdn.microsoft.com/library?url=/library/en-us/msi/setup/radiobutton_table.asp>`_
 
 .. _msi-tables:
 

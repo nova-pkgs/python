@@ -46,7 +46,7 @@ class PythonInfo:
         return {key: str(value) for key, value in self.info.items()}
 
 
-def copy_attributes(info_add, obj, name_fmt, attributes, *, formatter=None):
+def copy_attributes(info_add, obj, name_fmt, attributes, formatter=None):
     for attr in attributes:
         value = getattr(obj, attr, None)
         if value is None:
@@ -65,7 +65,7 @@ def copy_attr(info_add, name, mod, attr_name):
     info_add(name, value)
 
 
-def call_func(info_add, name, mod, func_name, *, formatter=None):
+def call_func(info_add, name, mod, func_name, formatter=None):
     try:
         func = getattr(mod, func_name)
     except AttributeError:
@@ -161,25 +161,6 @@ def collect_builtins(info_add):
     info_add('builtins.float.double_format', float.__getformat__("double"))
 
 
-def collect_urandom(info_add):
-    import os
-
-    if hasattr(os, 'getrandom'):
-        # PEP 524: Check if system urandom is initialized
-        try:
-            try:
-                os.getrandom(1, os.GRND_NONBLOCK)
-                state = 'ready (initialized)'
-            except BlockingIOError as exc:
-                state = 'not seeded yet (%s)' % exc
-            info_add('os.getrandom', state)
-        except OSError as exc:
-            # Python was compiled on a more recent Linux version
-            # than the current Linux kernel: ignore OSError(ENOSYS)
-            if exc.errno != errno.ENOSYS:
-                raise
-
-
 def collect_os(info_add):
     import os
 
@@ -199,16 +180,16 @@ def collect_os(info_add):
     )
     copy_attributes(info_add, os, 'os.%s', attributes, formatter=format_attr)
 
-    call_func(info_add, 'os.getcwd', os, 'getcwd')
+    call_func(info_add, 'os.cwd', os, 'getcwd')
 
-    call_func(info_add, 'os.getuid', os, 'getuid')
-    call_func(info_add, 'os.getgid', os, 'getgid')
+    call_func(info_add, 'os.uid', os, 'getuid')
+    call_func(info_add, 'os.gid', os, 'getgid')
     call_func(info_add, 'os.uname', os, 'uname')
 
     def format_groups(groups):
         return ', '.join(map(str, groups))
 
-    call_func(info_add, 'os.getgroups', os, 'getgroups', formatter=format_groups)
+    call_func(info_add, 'os.groups', os, 'getgroups', formatter=format_groups)
 
     if hasattr(os, 'getlogin'):
         try:
@@ -221,7 +202,7 @@ def collect_os(info_add):
             info_add("os.login", login)
 
     call_func(info_add, 'os.cpu_count', os, 'cpu_count')
-    call_func(info_add, 'os.getloadavg', os, 'getloadavg')
+    call_func(info_add, 'os.loadavg', os, 'getloadavg')
 
     # Environment variables used by the stdlib and tests. Don't log the full
     # environment: filter to list to not leak sensitive information.
@@ -305,32 +286,20 @@ def collect_os(info_add):
         os.umask(mask)
         info_add("os.umask", '%03o' % mask)
 
-
-def collect_pwd(info_add):
-    try:
-        import pwd
-    except ImportError:
-        return
-    import os
-
-    uid = os.getuid()
-    try:
-        entry = pwd.getpwuid(uid)
-    except KeyError:
-        entry = None
-
-    info_add('pwd.getpwuid(%s)'% uid,
-             entry if entry is not None else '<KeyError>')
-
-    if entry is None:
-        # there is nothing interesting to read if the current user identifier
-        # is not the password database
-        return
-
-    if hasattr(os, 'getgrouplist'):
-        groups = os.getgrouplist(entry.pw_name, entry.pw_gid)
-        groups = ', '.join(map(str, groups))
-        info_add('os.getgrouplist', groups)
+    if hasattr(os, 'getrandom'):
+        # PEP 524: Check if system urandom is initialized
+        try:
+            try:
+                os.getrandom(1, os.GRND_NONBLOCK)
+                state = 'ready (initialized)'
+            except BlockingIOError as exc:
+                state = 'not seeded yet (%s)' % exc
+            info_add('os.getrandom', state)
+        except OSError as exc:
+            # Python was compiled on a more recent Linux version
+            # than the current Linux kernel: ignore OSError(ENOSYS)
+            if exc.errno != errno.ENOSYS:
+                raise
 
 
 def collect_readline(info_add):
@@ -495,8 +464,37 @@ def collect_ssl(info_add):
     )
     copy_attributes(info_add, ssl, 'ssl.%s', attributes, formatter=format_attr)
 
+    options_names = []
+    protocol_names = {}
+    verify_modes = {}
+    for name in dir(ssl):
+        if name.startswith('OP_'):
+            options_names.append((name, getattr(ssl, name)))
+        elif name.startswith('PROTOCOL_'):
+            protocol_names[getattr(ssl, name)] = name
+        elif name.startswith('CERT_'):
+            verify_modes[getattr(ssl, name)] = name
+    options_names.sort(key=lambda item: item[1], reverse=True)
+
+    def formatter(attr_name, value):
+        if attr_name == 'options':
+            options_text = []
+            for opt_name, opt_value in options_names:
+                if value & opt_value:
+                    options_text.append(opt_name)
+                    value &= ~opt_value
+            if value:
+                options_text.append(str(value))
+            return '|' .join(options_text)
+        elif attr_name == 'verify_mode':
+            return verify_modes.get(value, value)
+        elif attr_name == 'protocol':
+            return protocol_names.get(value, value)
+        else:
+            return value
+
     for name, ctx in (
-        ('SSLContext', ssl.SSLContext()),
+        ('SSLContext(PROTOCOL_TLS)', ssl.SSLContext(ssl.PROTOCOL_TLS)),
         ('default_https_context', ssl._create_default_https_context()),
         ('stdlib_context', ssl._create_stdlib_context()),
     ):
@@ -507,7 +505,7 @@ def collect_ssl(info_add):
             'options',
             'verify_mode',
         )
-        copy_attributes(info_add, ctx, f'ssl.{name}.%s', attributes)
+        copy_attributes(info_add, ctx, 'ssl.%s.%%s' % name, attributes, formatter=formatter)
 
     env_names = ["OPENSSL_CONF", "SSLKEYLOGFILE"]
     if _ssl is not None and hasattr(_ssl, 'get_default_verify_paths'):
@@ -664,7 +662,8 @@ def collect_gdbm(info_add):
 
 
 def collect_get_config(info_add):
-    # Get global configuration variables, _PyPreConfig and _PyCoreConfig
+    # Dump global configuration variables, _PyCoreConfig
+    # and _PyMainInterpreterConfig
     try:
         from _testinternalcapi import get_configs
     except ImportError:
@@ -682,71 +681,36 @@ def collect_subprocess(info_add):
     copy_attributes(info_add, subprocess, 'subprocess.%s', ('_USE_POSIX_SPAWN',))
 
 
-def collect_windows(info_add):
-    try:
-        import ctypes
-    except ImportError:
-        return
-
-    if not hasattr(ctypes, 'WinDLL'):
-        return
-
-    ntdll = ctypes.WinDLL('ntdll')
-    BOOLEAN = ctypes.c_ubyte
-
-    try:
-        RtlAreLongPathsEnabled = ntdll.RtlAreLongPathsEnabled
-    except AttributeError:
-        res = '<function not available>'
-    else:
-        RtlAreLongPathsEnabled.restype = BOOLEAN
-        RtlAreLongPathsEnabled.argtypes = ()
-        res = bool(RtlAreLongPathsEnabled())
-    info_add('windows.RtlAreLongPathsEnabled', res)
-
-    try:
-        import _winapi
-        dll_path = _winapi.GetModuleFileName(sys.dllhandle)
-        info_add('windows.dll_path', dll_path)
-    except (ImportError, AttributeError):
-        pass
-
-
 def collect_info(info):
     error = False
     info_add = info.add
 
     for collect_func in (
-        # collect_urandom() must be the first, to check the getrandom() status.
-        # Other functions may block on os.urandom() indirectly and so change
-        # its state.
-        collect_urandom,
+        # collect_os() should be the first, to check the getrandom() status
+        collect_os,
 
         collect_builtins,
-        collect_cc,
-        collect_datetime,
-        collect_decimal,
-        collect_expat,
         collect_gdb,
-        collect_gdbm,
-        collect_get_config,
         collect_locale,
-        collect_os,
         collect_platform,
-        collect_pwd,
         collect_readline,
-        collect_resource,
         collect_socket,
         collect_sqlite,
         collect_ssl,
-        collect_subprocess,
         collect_sys,
         collect_sysconfig,
-        collect_testcapi,
         collect_time,
+        collect_datetime,
         collect_tkinter,
-        collect_windows,
         collect_zlib,
+        collect_expat,
+        collect_decimal,
+        collect_testcapi,
+        collect_resource,
+        collect_cc,
+        collect_gdbm,
+        collect_get_config,
+        collect_subprocess,
 
         # Collecting from tests should be last as they have side effects.
         collect_test_socket,

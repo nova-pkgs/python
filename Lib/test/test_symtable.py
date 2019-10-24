@@ -4,13 +4,13 @@ Test the API of the symtable module.
 import symtable
 import unittest
 
+from test import test_support
 
 
 TEST_CODE = """
 import sys
 
 glob = 42
-some_var = 12
 
 class Mine:
     instance_var = 24
@@ -20,19 +20,15 @@ class Mine:
 def spam(a, b, *var, **kw):
     global bar
     bar = 47
-    some_var = 10
     x = 23
     glob
     def internal():
         return x
-    def other_internal():
-        nonlocal some_var
-        some_var = 3
-        return some_var
     return internal
 
 def foo():
-    pass
+    exec 'm'
+    from sys import *
 
 def namespace_test(): pass
 def namespace_test(): pass
@@ -47,13 +43,14 @@ def find_block(block, name):
 
 class SymtableTest(unittest.TestCase):
 
-    top = symtable.symtable(TEST_CODE, "?", "exec")
+    with test_support.check_warnings(
+            ("import \* only allowed at module level", SyntaxWarning)):
+        top = symtable.symtable(TEST_CODE, "?", "exec")
     # These correspond to scopes in TEST_CODE
     Mine = find_block(top, "Mine")
     a_method = find_block(Mine, "a_method")
     spam = find_block(top, "spam")
     internal = find_block(spam, "internal")
-    other_internal = find_block(spam, "other_internal")
     foo = find_block(top, "foo")
 
     def test_type(self):
@@ -66,8 +63,13 @@ class SymtableTest(unittest.TestCase):
     def test_optimized(self):
         self.assertFalse(self.top.is_optimized())
         self.assertFalse(self.top.has_exec())
+        self.assertFalse(self.top.has_import_star())
 
         self.assertTrue(self.spam.is_optimized())
+
+        self.assertFalse(self.foo.is_optimized())
+        self.assertTrue(self.foo.has_exec())
+        self.assertTrue(self.foo.has_import_star())
 
     def test_nested(self):
         self.assertFalse(self.top.is_nested())
@@ -82,12 +84,12 @@ class SymtableTest(unittest.TestCase):
 
     def test_lineno(self):
         self.assertEqual(self.top.get_lineno(), 0)
-        self.assertEqual(self.spam.get_lineno(), 12)
+        self.assertEqual(self.spam.get_lineno(), 11)
 
     def test_function_info(self):
         func = self.spam
         self.assertEqual(sorted(func.get_parameters()), ["a", "b", "kw", "var"])
-        expected = ['a', 'b', 'internal', 'kw', 'other_internal', 'some_var', 'var', 'x']
+        expected = ["a", "b", "internal", "kw", "var", "x"]
         self.assertEqual(sorted(func.get_locals()), expected)
         self.assertEqual(sorted(func.get_globals()), ["bar", "glob"])
         self.assertEqual(self.internal.get_frees(), ("x",))
@@ -99,12 +101,6 @@ class SymtableTest(unittest.TestCase):
         self.assertTrue(self.spam.lookup("bar").is_declared_global())
         self.assertFalse(self.internal.lookup("x").is_global())
         self.assertFalse(self.Mine.lookup("instance_var").is_global())
-
-    def test_nonlocal(self):
-        self.assertFalse(self.spam.lookup("some_var").is_nonlocal())
-        self.assertTrue(self.other_internal.lookup("some_var").is_nonlocal())
-        expected = ("some_var",)
-        self.assertEqual(self.other_internal.get_nonlocals(), expected)
 
     def test_local(self):
         self.assertTrue(self.spam.lookup("x").is_local())
@@ -146,31 +142,6 @@ class SymtableTest(unittest.TestCase):
         self.assertTrue(self.Mine.lookup("a_method").is_assigned())
         self.assertFalse(self.internal.lookup("x").is_assigned())
 
-    def test_annotated(self):
-        st1 = symtable.symtable('def f():\n    x: int\n', 'test', 'exec')
-        st2 = st1.get_children()[0]
-        self.assertTrue(st2.lookup('x').is_local())
-        self.assertTrue(st2.lookup('x').is_annotated())
-        self.assertFalse(st2.lookup('x').is_global())
-        st3 = symtable.symtable('def f():\n    x = 1\n', 'test', 'exec')
-        st4 = st3.get_children()[0]
-        self.assertTrue(st4.lookup('x').is_local())
-        self.assertFalse(st4.lookup('x').is_annotated())
-
-        # Test that annotations in the global scope are valid after the
-        # variable is declared as nonlocal.
-        st5 = symtable.symtable('global x\nx: int', 'test', 'exec')
-        self.assertTrue(st5.lookup("x").is_global())
-
-        # Test that annotations for nonlocals are valid after the
-        # variable is declared as nonlocal.
-        st6 = symtable.symtable('def g():\n'
-                                '    x = 2\n'
-                                '    def f():\n'
-                                '        nonlocal x\n'
-                                '    x: int',
-                                'test', 'exec')
-
     def test_imported(self):
         self.assertTrue(self.top.lookup("sys").is_imported())
 
@@ -186,25 +157,15 @@ class SymtableTest(unittest.TestCase):
     def test_filename_correct(self):
         ### Bug tickler: SyntaxError file name correct whether error raised
         ### while parsing or building symbol table.
-        def checkfilename(brokencode, offset):
+        def checkfilename(brokencode):
             try:
                 symtable.symtable(brokencode, "spam", "exec")
             except SyntaxError as e:
                 self.assertEqual(e.filename, "spam")
-                self.assertEqual(e.lineno, 1)
-                self.assertEqual(e.offset, offset)
             else:
                 self.fail("no SyntaxError for %r" % (brokencode,))
-        checkfilename("def f(x): foo)(", 14)  # parse-time
-        checkfilename("def f(x): global x", 11)  # symtable-build-time
-        symtable.symtable("pass", b"spam", "exec")
-        with self.assertWarns(DeprecationWarning), \
-             self.assertRaises(TypeError):
-            symtable.symtable("pass", bytearray(b"spam"), "exec")
-        with self.assertWarns(DeprecationWarning):
-            symtable.symtable("pass", memoryview(b"spam"), "exec")
-        with self.assertRaises(TypeError):
-            symtable.symtable("pass", list(b"spam"), "exec")
+        checkfilename("def f(x): foo)(")  # parse-time
+        checkfilename("def f(x): global x")  # symtable-build-time
 
     def test_eval(self):
         symbols = symtable.symtable("42", "?", "eval")
@@ -215,15 +176,9 @@ class SymtableTest(unittest.TestCase):
     def test_exec(self):
         symbols = symtable.symtable("def f(x): return x", "?", "exec")
 
-    def test_bytes(self):
-        top = symtable.symtable(TEST_CODE.encode('utf8'), "?", "exec")
-        self.assertIsNotNone(find_block(top, "Mine"))
 
-        code = b'# -*- coding: iso8859-15 -*-\nclass \xb4: pass\n'
-
-        top = symtable.symtable(code, "?", "exec")
-        self.assertIsNotNone(find_block(top, "\u017d"))
-
+def test_main():
+    test_support.run_unittest(SymtableTest)
 
 if __name__ == '__main__':
-    unittest.main()
+    test_main()

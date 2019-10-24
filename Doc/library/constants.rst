@@ -7,55 +7,38 @@ A small number of constants live in the built-in namespace.  They are:
 
 .. data:: False
 
-   The false value of the :class:`bool` type. Assignments to ``False``
-   are illegal and raise a :exc:`SyntaxError`.
+   The false value of the :class:`bool` type.
+
+   .. versionadded:: 2.3
 
 
 .. data:: True
 
-   The true value of the :class:`bool` type. Assignments to ``True``
-   are illegal and raise a :exc:`SyntaxError`.
+   The true value of the :class:`bool` type.
+
+   .. versionadded:: 2.3
 
 
 .. data:: None
 
-   The sole value of the type ``NoneType``.  ``None`` is frequently used to
+   The sole value of :attr:`types.NoneType`.  ``None`` is frequently used to
    represent the absence of a value, as when default arguments are not passed to a
-   function. Assignments to ``None`` are illegal and raise a :exc:`SyntaxError`.
+   function.
+
+   .. versionchanged:: 2.4
+      Assignments to ``None`` are illegal and raise a :exc:`SyntaxError`.
 
 
 .. data:: NotImplemented
 
-   Special value which should be returned by the binary special methods
-   (e.g. :meth:`__eq__`, :meth:`__lt__`, :meth:`__add__`, :meth:`__rsub__`,
-   etc.) to indicate that the operation is not implemented with respect to
-   the other type; may be returned by the in-place binary special methods
-   (e.g. :meth:`__imul__`, :meth:`__iand__`, etc.) for the same purpose.
-   Its truth value is true.
-
-   .. note::
-
-      When a binary (or in-place) method returns ``NotImplemented`` the
-      interpreter will try the reflected operation on the other type (or some
-      other fallback, depending on the operator).  If all attempts return
-      ``NotImplemented``, the interpreter will raise an appropriate exception.
-      Incorrectly returning ``NotImplemented`` will result in a misleading
-      error message or the ``NotImplemented`` value being returned to Python code.
-
-      See :ref:`implementing-the-arithmetic-operations` for examples.
-
-   .. note::
-
-      ``NotImplementedError`` and ``NotImplemented`` are not interchangeable,
-      even though they have similar names and purposes.
-      See :exc:`NotImplementedError` for details on when to use it.
+   Special value which can be returned by the "rich comparison" special methods
+   (:meth:`__eq__`, :meth:`__lt__`, and friends), to indicate that the comparison
+   is not implemented with respect to the other type.
 
 
-.. index:: single: ...; ellipsis literal
 .. data:: Ellipsis
 
-   The same as the ellipsis literal "``...``".  Special value used mostly in conjunction
-   with extended slicing syntax for user-defined container data types.
+   Special value used in conjunction with extended slicing syntax.
 
 
 .. data:: __debug__
@@ -66,9 +49,12 @@ A small number of constants live in the built-in namespace.  They are:
 
 .. note::
 
-   The names :data:`None`, :data:`False`, :data:`True` and :data:`__debug__`
-   cannot be reassigned (assignments to them, even as an attribute name, raise
-   :exc:`SyntaxError`), so they can be considered "true" constants.
+   The names :data:`None` and :data:`__debug__` cannot be reassigned
+   (assignments to them, even as an attribute name, raise :exc:`SyntaxError`),
+   so they can be considered "true" constants.
+
+   .. versionchanged:: 2.7
+      Assignments to ``__debug__`` as an attribute became illegal.
 
 
 Constants added by the :mod:`site` module
@@ -79,8 +65,8 @@ if the :option:`-S` command-line option is given) adds several constants to the
 built-in namespace.  They are useful for the interactive interpreter shell and
 should not be used in programs.
 
-.. data:: quit(code=None)
-          exit(code=None)
+.. data:: quit([code=None])
+          exit([code=None])
 
    Objects that when printed, print a message like "Use quit() or Ctrl-D
    (i.e. EOF) to exit", and when called, raise :exc:`SystemExit` with the

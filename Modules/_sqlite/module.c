@@ -1,6 +1,6 @@
 /* module.c - the module itself
  *
- * Copyright (C) 2004-2010 Gerhard HÃ¤ring <gh@ghaering.de>
+ * Copyright (C) 2004-2010 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -35,20 +35,13 @@
 
 /* static objects at module-level */
 
-PyObject *pysqlite_Error = NULL;
-PyObject *pysqlite_Warning = NULL;
-PyObject *pysqlite_InterfaceError = NULL;
-PyObject *pysqlite_DatabaseError = NULL;
-PyObject *pysqlite_InternalError = NULL;
-PyObject *pysqlite_OperationalError = NULL;
-PyObject *pysqlite_ProgrammingError = NULL;
-PyObject *pysqlite_IntegrityError = NULL;
-PyObject *pysqlite_DataError = NULL;
-PyObject *pysqlite_NotSupportedError = NULL;
+PyObject* pysqlite_Error, *pysqlite_Warning, *pysqlite_InterfaceError, *pysqlite_DatabaseError,
+    *pysqlite_InternalError, *pysqlite_OperationalError, *pysqlite_ProgrammingError,
+    *pysqlite_IntegrityError, *pysqlite_DataError, *pysqlite_NotSupportedError, *pysqlite_OptimizedUnicode;
 
-PyObject* _pysqlite_converters = NULL;
-int _pysqlite_enable_callback_tracebacks = 0;
-int pysqlite_BaseTypeAdapted = 0;
+PyObject* _pysqlite_converters;
+int _pysqlite_enable_callback_tracebacks;
+int pysqlite_BaseTypeAdapted;
 
 static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
         kwargs)
@@ -57,36 +50,25 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
      * C-level, so this code is redundant with the one in connection_init in
      * connection.c and must always be copied from there ... */
 
-    static char *kwlist[] = {
-        "database", "timeout", "detect_types", "isolation_level",
-        "check_same_thread", "factory", "cached_statements", "uri",
-        NULL
-    };
+    static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", NULL, NULL};
     PyObject* database;
     int detect_types = 0;
     PyObject* isolation_level;
     PyObject* factory = NULL;
     int check_same_thread = 1;
     int cached_statements;
-    int uri = 0;
     double timeout = 5.0;
 
     PyObject* result;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOip", kwlist,
-                                     &database, &timeout, &detect_types,
-                                     &isolation_level, &check_same_thread,
-                                     &factory, &cached_statements, &uri))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
+                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
     {
-        return NULL;
+        return NULL; 
     }
 
     if (factory == NULL) {
         factory = (PyObject*)&pysqlite_ConnectionType;
-    }
-
-    if (PySys_Audit("sqlite3.connect", "O", database) < 0) {
-        return NULL;
     }
 
     result = PyObject_Call(factory, args, kwargs);
@@ -95,8 +77,7 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
 }
 
 PyDoc_STRVAR(module_connect_doc,
-"connect(database[, timeout, detect_types, isolation_level,\n\
-        check_same_thread, factory, cached_statements, uri])\n\
+"connect(database[, timeout, isolation_level, detect_types, factory])\n\
 \n\
 Opens a connection to the SQLite database file *database*. You can use\n\
 \":memory:\" to open a database connection to a database that resides in\n\
@@ -112,7 +93,7 @@ static PyObject* module_complete(PyObject* self, PyObject* args, PyObject*
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s", kwlist, &statement))
     {
-        return NULL;
+        return NULL; 
     }
 
     if (sqlite3_complete(statement)) {
@@ -141,7 +122,7 @@ static PyObject* module_enable_shared_cache(PyObject* self, PyObject* args, PyOb
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i", kwlist, &do_enable))
     {
-        return NULL;
+        return NULL; 
     }
 
     rc = sqlite3_enable_shared_cache(do_enable);
@@ -150,7 +131,8 @@ static PyObject* module_enable_shared_cache(PyObject* self, PyObject* args, PyOb
         PyErr_SetString(pysqlite_OperationalError, "Changing the shared_cache flag failed");
         return NULL;
     } else {
-        Py_RETURN_NONE;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 }
 
@@ -173,8 +155,8 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args)
 
     /* a basic type is adapted; there's a performance optimization if that's not the case
      * (99 % of all usages) */
-    if (type == &PyLong_Type || type == &PyFloat_Type
-            || type == &PyUnicode_Type || type == &PyByteArray_Type) {
+    if (type == &PyInt_Type || type == &PyLong_Type || type == &PyFloat_Type
+            || type == &PyString_Type || type == &PyUnicode_Type || type == &PyBuffer_Type) {
         pysqlite_BaseTypeAdapted = 1;
     }
 
@@ -182,7 +164,8 @@ static PyObject* module_register_adapter(PyObject* self, PyObject* args)
     if (rc == -1)
         return NULL;
 
-    Py_RETURN_NONE;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 PyDoc_STRVAR(module_register_adapter_doc,
@@ -196,14 +179,13 @@ static PyObject* module_register_converter(PyObject* self, PyObject* args)
     PyObject* name = NULL;
     PyObject* callable;
     PyObject* retval = NULL;
-    _Py_IDENTIFIER(upper);
 
-    if (!PyArg_ParseTuple(args, "UO", &orig_name, &callable)) {
+    if (!PyArg_ParseTuple(args, "SO", &orig_name, &callable)) {
         return NULL;
     }
 
     /* convert the name to upper case */
-    name = _PyObject_CallMethodId(orig_name, &PyId_upper, NULL);
+    name = PyObject_CallMethod(orig_name, "upper", "");
     if (!name) {
         goto error;
     }
@@ -230,7 +212,8 @@ static PyObject* enable_callback_tracebacks(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    Py_RETURN_NONE;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 PyDoc_STRVAR(enable_callback_tracebacks_doc,
@@ -249,12 +232,12 @@ static void converters_init(PyObject* dict)
 }
 
 static PyMethodDef module_methods[] = {
-    {"connect",  (PyCFunction)(void(*)(void))module_connect,
+    {"connect",  (PyCFunction)module_connect,
      METH_VARARGS | METH_KEYWORDS, module_connect_doc},
-    {"complete_statement",  (PyCFunction)(void(*)(void))module_complete,
+    {"complete_statement",  (PyCFunction)module_complete,
      METH_VARARGS | METH_KEYWORDS, module_complete_doc},
 #ifdef HAVE_SHARED_CACHE
-    {"enable_shared_cache",  (PyCFunction)(void(*)(void))module_enable_shared_cache,
+    {"enable_shared_cache",  (PyCFunction)module_enable_shared_cache,
      METH_VARARGS | METH_KEYWORDS, module_enable_shared_cache_doc},
 #endif
     {"register_adapter", (PyCFunction)module_register_adapter,
@@ -269,13 +252,13 @@ static PyMethodDef module_methods[] = {
 };
 
 struct _IntConstantPair {
-    const char *constant_name;
+    char* constant_name;
     int constant_value;
 };
 
 typedef struct _IntConstantPair IntConstantPair;
 
-static const IntConstantPair _int_constants[] = {
+static IntConstantPair _int_constants[] = {
     {"PARSE_DECLTYPES", PARSE_DECLTYPES},
     {"PARSE_COLNAMES", PARSE_COLNAMES},
 
@@ -314,45 +297,16 @@ static const IntConstantPair _int_constants[] = {
 #if SQLITE_VERSION_NUMBER >= 3003000
     {"SQLITE_ANALYZE", SQLITE_ANALYZE},
 #endif
-#if SQLITE_VERSION_NUMBER >= 3003007
-    {"SQLITE_CREATE_VTABLE", SQLITE_CREATE_VTABLE},
-    {"SQLITE_DROP_VTABLE", SQLITE_DROP_VTABLE},
-#endif
-#if SQLITE_VERSION_NUMBER >= 3003008
-    {"SQLITE_FUNCTION", SQLITE_FUNCTION},
-#endif
-#if SQLITE_VERSION_NUMBER >= 3006008
-    {"SQLITE_SAVEPOINT", SQLITE_SAVEPOINT},
-#endif
-#if SQLITE_VERSION_NUMBER >= 3008003
-    {"SQLITE_RECURSIVE", SQLITE_RECURSIVE},
-#endif
-#if SQLITE_VERSION_NUMBER >= 3006011
-    {"SQLITE_DONE", SQLITE_DONE},
-#endif
     {(char*)NULL, 0}
 };
 
-
-static struct PyModuleDef _sqlite3module = {
-        PyModuleDef_HEAD_INIT,
-        "_sqlite3",
-        NULL,
-        -1,
-        module_methods,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-};
-
-PyMODINIT_FUNC PyInit__sqlite3(void)
+PyMODINIT_FUNC init_sqlite3(void)
 {
     PyObject *module, *dict;
     PyObject *tmp_obj;
     int i;
 
-    module = PyModule_Create(&_sqlite3module);
+    module = Py_InitModule("_sqlite3", module_methods);
 
     if (!module ||
         (pysqlite_row_setup_types() < 0) ||
@@ -362,14 +316,17 @@ PyMODINIT_FUNC PyInit__sqlite3(void)
         (pysqlite_statement_setup_types() < 0) ||
         (pysqlite_prepare_protocol_setup_types() < 0)
        ) {
-        Py_XDECREF(module);
-        return NULL;
+        return;
     }
 
     Py_INCREF(&pysqlite_ConnectionType);
     PyModule_AddObject(module, "Connection", (PyObject*) &pysqlite_ConnectionType);
     Py_INCREF(&pysqlite_CursorType);
     PyModule_AddObject(module, "Cursor", (PyObject*) &pysqlite_CursorType);
+    Py_INCREF(&pysqlite_CacheType);
+    PyModule_AddObject(module, "Statement", (PyObject*)&pysqlite_StatementType);
+    Py_INCREF(&pysqlite_StatementType);
+    PyModule_AddObject(module, "Cache", (PyObject*) &pysqlite_CacheType);
     Py_INCREF(&pysqlite_PrepareProtocolType);
     PyModule_AddObject(module, "PrepareProtocol", (PyObject*) &pysqlite_PrepareProtocolType);
     Py_INCREF(&pysqlite_RowType);
@@ -381,12 +338,12 @@ PyMODINIT_FUNC PyInit__sqlite3(void)
 
     /*** Create DB-API Exception hierarchy */
 
-    if (!(pysqlite_Error = PyErr_NewException(MODULE_NAME ".Error", PyExc_Exception, NULL))) {
+    if (!(pysqlite_Error = PyErr_NewException(MODULE_NAME ".Error", PyExc_StandardError, NULL))) {
         goto error;
     }
     PyDict_SetItemString(dict, "Error", pysqlite_Error);
 
-    if (!(pysqlite_Warning = PyErr_NewException(MODULE_NAME ".Warning", PyExc_Exception, NULL))) {
+    if (!(pysqlite_Warning = PyErr_NewException(MODULE_NAME ".Warning", PyExc_StandardError, NULL))) {
         goto error;
     }
     PyDict_SetItemString(dict, "Warning", pysqlite_Warning);
@@ -435,17 +392,17 @@ PyMODINIT_FUNC PyInit__sqlite3(void)
     }
     PyDict_SetItemString(dict, "NotSupportedError", pysqlite_NotSupportedError);
 
-    /* In Python 2.x, setting Connection.text_factory to
-       OptimizedUnicode caused Unicode objects to be returned for
-       non-ASCII data and bytestrings to be returned for ASCII data.
-       Now OptimizedUnicode is an alias for str, so it has no
-       effect. */
-    Py_INCREF((PyObject*)&PyUnicode_Type);
-    PyDict_SetItemString(dict, "OptimizedUnicode", (PyObject*)&PyUnicode_Type);
+    /* We just need "something" unique for pysqlite_OptimizedUnicode. It does not really
+     * need to be a string subclass. Just anything that can act as a special
+     * marker for us. So I pulled PyCell_Type out of my magic hat.
+     */
+    Py_INCREF((PyObject*)&PyCell_Type);
+    pysqlite_OptimizedUnicode = (PyObject*)&PyCell_Type;
+    PyDict_SetItemString(dict, "OptimizedUnicode", pysqlite_OptimizedUnicode);
 
     /* Set integer constants */
-    for (i = 0; _int_constants[i].constant_name != NULL; i++) {
-        tmp_obj = PyLong_FromLong(_int_constants[i].constant_value);
+    for (i = 0; _int_constants[i].constant_name != 0; i++) {
+        tmp_obj = PyInt_FromLong(_int_constants[i].constant_value);
         if (!tmp_obj) {
             goto error;
         }
@@ -453,13 +410,13 @@ PyMODINIT_FUNC PyInit__sqlite3(void)
         Py_DECREF(tmp_obj);
     }
 
-    if (!(tmp_obj = PyUnicode_FromString(PYSQLITE_VERSION))) {
+    if (!(tmp_obj = PyString_FromString(PYSQLITE_VERSION))) {
         goto error;
     }
     PyDict_SetItemString(dict, "version", tmp_obj);
     Py_DECREF(tmp_obj);
 
-    if (!(tmp_obj = PyUnicode_FromString(sqlite3_libversion()))) {
+    if (!(tmp_obj = PyString_FromString(sqlite3_libversion()))) {
         goto error;
     }
     PyDict_SetItemString(dict, "sqlite_version", tmp_obj);
@@ -471,12 +428,30 @@ PyMODINIT_FUNC PyInit__sqlite3(void)
     /* initialize the default converters */
     converters_init(dict);
 
+    _pysqlite_enable_callback_tracebacks = 0;
+
+    pysqlite_BaseTypeAdapted = 0;
+
+    /* Original comment from _bsddb.c in the Python core. This is also still
+     * needed nowadays for Python 2.3/2.4.
+     * 
+     * PyEval_InitThreads is called here due to a quirk in python 1.5
+     * - 2.2.1 (at least) according to Russell Williamson <merel@wt.net>:
+     * The global interpreter lock is not initialized until the first
+     * thread is created using thread.start_new_thread() or fork() is
+     * called.  that would cause the ALLOW_THREADS here to segfault due
+     * to a null pointer reference if no threads or child processes
+     * have been created.  This works around that and is a no-op if
+     * threads have already been initialized.
+     *  (see pybsddb-users mailing list post on 2002-08-07)
+     */
+#ifdef WITH_THREAD
+    PyEval_InitThreads();
+#endif
+
 error:
     if (PyErr_Occurred())
     {
         PyErr_SetString(PyExc_ImportError, MODULE_NAME ": init failed");
-        Py_DECREF(module);
-        module = NULL;
     }
-    return module;
 }

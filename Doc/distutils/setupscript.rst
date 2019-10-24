@@ -4,8 +4,6 @@
 Writing the Setup Script
 ************************
 
-.. include:: ./_setuptools_disclaimer.rst
-
 The setup script is the centre of all activity in building, distributing, and
 installing modules using the Distutils.  The main purpose of the setup script is
 to describe your module distribution to the Distutils, so that the various
@@ -338,10 +336,6 @@ Other options
 
 There are still some other options which can be used to handle special cases.
 
-The ``optional`` option is a boolean; if it is true,
-a build failure in the extension will not abort the build process, but
-instead simply not install the failing extension.
-
 The ``extra_objects`` option is a list of object files to be passed to the
 linker. These files must not have extensions, as the default extension for the
 compiler is used.
@@ -458,10 +452,9 @@ way.  From the PyXML setup script::
           scripts=['scripts/xmlproc_parse', 'scripts/xmlproc_val']
           )
 
-.. versionchanged:: 3.1
-   All the scripts will also be added to the ``MANIFEST`` file if no template is
-   provided.  See :ref:`manifest`.
-
+.. versionchanged:: 2.7
+    All the scripts will also be added to the ``MANIFEST``
+    file if no template is provided. See :ref:`manifest`.
 
 .. _distutils-installing-package-data:
 
@@ -505,10 +498,11 @@ The corresponding call to :func:`setup` might be::
           package_data={'mypkg': ['data/*.dat']},
           )
 
+.. versionadded:: 2.4
 
-.. versionchanged:: 3.1
-   All the files that match ``package_data`` will be added to the ``MANIFEST``
-   file if no template is provided.  See :ref:`manifest`.
+.. versionchanged:: 2.7
+    All the files that match ``package_data`` will be added to the ``MANIFEST``
+    file if no template is provided. See :ref:`manifest`.
 
 
 .. _distutils-additional-files:
@@ -525,7 +519,7 @@ following way::
 
     setup(...,
           data_files=[('bitmaps', ['bm/b1.gif', 'bm/b2.gif']),
-                      ('config', ['cfg/data.cfg'])],
+                      ('config', ['cfg/data.cfg']),
          )
 
 Each (*directory*, *files*) pair in the sequence specifies the installation
@@ -550,9 +544,10 @@ without specifying a target directory, but this is not recommended, and the
 files directly in the target directory, an empty string should be given as the
 directory.
 
-.. versionchanged:: 3.1
-   All the files that match ``data_files`` will be added to the ``MANIFEST``
-   file if no template is provided.  See :ref:`manifest`.
+.. versionchanged:: 2.7
+    All the files that match ``data_files`` will be added to the ``MANIFEST``
+    file if no template is provided. See :ref:`manifest`.
+
 
 
 .. _meta-data:
@@ -586,19 +581,17 @@ This information includes:
 |                      | description of the        |                 |        |
 |                      | package                   |                 |        |
 +----------------------+---------------------------+-----------------+--------+
-| ``long_description`` | longer description of the | long string     | \(4)   |
+| ``long_description`` | longer description of the | long string     | \(5)   |
 |                      | package                   |                 |        |
 +----------------------+---------------------------+-----------------+--------+
-| ``download_url``     | location where the        | URL             |        |
+| ``download_url``     | location where the        | URL             | \(4)   |
 |                      | package may be downloaded |                 |        |
 +----------------------+---------------------------+-----------------+--------+
-| ``classifiers``      | a list of classifiers     | list of strings | (6)(7) |
+| ``classifiers``      | a list of classifiers     | list of strings | \(4)   |
 +----------------------+---------------------------+-----------------+--------+
-| ``platforms``        | a list of platforms       | list of strings | (6)(8) |
+| ``platforms``        | a list of platforms       | list of strings |        |
 +----------------------+---------------------------+-----------------+--------+
-| ``keywords``         | a list of keywords        | list of strings | (6)(8) |
-+----------------------+---------------------------+-----------------+--------+
-| ``license``          | license for the package   | short string    | \(5)   |
+| ``license``          | license for the package   | short string    | \(6)   |
 +----------------------+---------------------------+-----------------+--------+
 
 Notes:
@@ -614,28 +607,20 @@ Notes:
     provided, distutils lists it as the author in :file:`PKG-INFO`.
 
 (4)
+    These fields should not be used if your package is to be compatible with Python
+    versions prior to 2.2.3 or 2.3.  The list is available from the `PyPI website
+    <https://pypi.org>`_.
+
+(5)
     The ``long_description`` field is used by PyPI when you publish a package,
     to build its project page.
 
-(5)
+(6)
     The ``license`` field is a text indicating the license covering the
     package where the license is not a selection from the "License" Trove
     classifiers. See the ``Classifier`` field. Notice that
     there's a ``licence`` distribution option which is deprecated but still
     acts as an alias for ``license``.
-
-(6)
-    This field must be a list.
-
-(7)
-    The valid classifiers are listed on
-    `PyPI <https://pypi.org/classifiers>`_.
-
-(8)
-    To preserve backward compatibility, this field also accepts a string. If
-    you pass a comma-separated string ``'foo, bar'``, it will be converted to
-    ``['foo', 'bar']``, Otherwise, it will be converted to a list of one
-    string.
 
 'short string'
     A single line of text, not more than 200 characters.
@@ -646,6 +631,8 @@ Notes:
 
 'list of strings'
     See below.
+
+None of the string values may be Unicode.
 
 Encoding the version information is an art in itself. Python packages generally
 adhere to the version format *major.minor[.patch][sub]*. The major number is 0
@@ -664,7 +651,7 @@ information is sometimes used to indicate sub-releases.  These are
 1.0.1a2
     the second alpha release of the first patch version of 1.0
 
-``classifiers`` must be specified in a list::
+``classifiers`` are specified in a Python list::
 
     setup(...,
           classifiers=[
@@ -685,9 +672,19 @@ information is sometimes used to indicate sub-releases.  These are
               ],
           )
 
-.. versionchanged:: 3.7
-   :class:`~distutils.core.setup` now warns when ``classifiers``, ``keywords``
-   or ``platforms`` fields are not specified as a list or a string.
+If you wish to include classifiers in your :file:`setup.py` file and also wish
+to remain backwards-compatible with Python releases prior to 2.2.3, then you can
+include the following code fragment in your :file:`setup.py` before the
+:func:`setup` call. ::
+
+    # patch distutils if it can't cope with the "classifiers" or
+    # "download_url" keywords
+    from sys import version
+    if version < '2.2.3':
+        from distutils.dist import DistributionMetadata
+        DistributionMetadata.classifiers = None
+        DistributionMetadata.download_url = None
+
 
 .. _debug-setup-script:
 

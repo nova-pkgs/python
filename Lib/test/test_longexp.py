@@ -1,4 +1,5 @@
 import unittest
+from test import test_support
 
 class LongExpText(unittest.TestCase):
     def test_longexp(self):
@@ -6,5 +7,8 @@ class LongExpText(unittest.TestCase):
         l = eval("[" + "2," * REPS + "]")
         self.assertEqual(len(l), REPS)
 
-if __name__ == "__main__":
-    unittest.main()
+def test_main():
+    test_support.run_unittest(LongExpText)
+
+if __name__=="__main__":
+    test_main()

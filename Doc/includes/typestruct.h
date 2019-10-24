@@ -1,16 +1,15 @@
 typedef struct _typeobject {
     PyObject_VAR_HEAD
-    const char *tp_name; /* For printing, in format "<module>.<name>" */
-    Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
+    char *tp_name; /* For printing, in format "<module>.<name>" */
+    int tp_basicsize, tp_itemsize; /* For allocation */
 
     /* Methods to implement standard operations */
 
     destructor tp_dealloc;
-    Py_ssize_t tp_vectorcall_offset;
+    printfunc tp_print;
     getattrfunc tp_getattr;
     setattrfunc tp_setattr;
-    PyAsyncMethods *tp_as_async; /* formerly known as tp_compare (Python 2)
-                                    or tp_reserved (Python 3) */
+    cmpfunc tp_compare;
     reprfunc tp_repr;
 
     /* Method suites for standard classes */
@@ -31,22 +30,25 @@ typedef struct _typeobject {
     PyBufferProcs *tp_as_buffer;
 
     /* Flags to define presence of optional/expanded features */
-    unsigned long tp_flags;
+    long tp_flags;
 
-    const char *tp_doc; /* Documentation string */
+    char *tp_doc; /* Documentation string */
 
+    /* Assigned meaning in release 2.0 */
     /* call function for all accessible objects */
     traverseproc tp_traverse;
 
     /* delete references to contained objects */
     inquiry tp_clear;
 
+    /* Assigned meaning in release 2.1 */
     /* rich comparisons */
     richcmpfunc tp_richcompare;
 
     /* weak reference enabler */
-    Py_ssize_t tp_weaklistoffset;
+    long tp_weaklistoffset;
 
+    /* Added in release 2.2 */
     /* Iterators */
     getiterfunc tp_iter;
     iternextfunc tp_iternext;
@@ -59,7 +61,7 @@ typedef struct _typeobject {
     PyObject *tp_dict;
     descrgetfunc tp_descr_get;
     descrsetfunc tp_descr_set;
-    Py_ssize_t tp_dictoffset;
+    long tp_dictoffset;
     initproc tp_init;
     allocfunc tp_alloc;
     newfunc tp_new;
@@ -70,11 +72,5 @@ typedef struct _typeobject {
     PyObject *tp_cache;
     PyObject *tp_subclasses;
     PyObject *tp_weaklist;
-    destructor tp_del;
-
-    /* Type attribute cache version tag. Added in version 2.6 */
-    unsigned int tp_version_tag;
-
-    destructor tp_finalize;
 
 } PyTypeObject;

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _reflection:
 
@@ -32,6 +32,12 @@ Reflection
 .. c:function:: int PyFrame_GetLineNumber(PyFrameObject *frame)
 
    Return the line number that *frame* is currently executing.
+
+
+.. c:function:: int PyEval_GetRestricted()
+
+   If there is a current frame and it is executing in restricted mode, return true,
+   otherwise false.
 
 
 .. c:function:: const char* PyEval_GetFuncName(PyObject *func)

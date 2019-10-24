@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Python documentation build configuration file
 #
@@ -8,27 +9,16 @@
 
 import sys, os, time
 sys.path.append(os.path.abspath('tools/extensions'))
-sys.path.append(os.path.abspath('includes'))
 
 # General configuration
 # ---------------------
 
 extensions = ['sphinx.ext.coverage', 'sphinx.ext.doctest',
-              'pyspecific', 'c_annotations', 'escape4chm']
-
-
-doctest_global_setup = '''
-try:
-    import _tkinter
-except ImportError:
-    _tkinter = None
-'''
-
-manpages_url = 'https://manpages.debian.org/{path}'
+              'pyspecific', 'c_annotations']
 
 # General substitutions.
 project = 'Python'
-copyright = '2001-%s, Python Software Foundation' % time.strftime('%Y')
+copyright = '1990-%s, Python Software Foundation' % time.strftime('%Y')
 
 # We look for the Include/patchlevel.h file in the current Python source tree
 # and replace the values accordingly.
@@ -41,22 +31,15 @@ today = ''
 # Else, today_fmt is used as the format for a strftime call.
 today_fmt = '%B %d, %Y'
 
-# By default, highlight as Python 3.
-highlight_language = 'python3'
+# List of files that shouldn't be included in the build.
+exclude_patterns = [
+    'maclib/scrap.rst',
+    'library/xmllib.rst',
+    'library/xml.etree.rst',
+]
 
-# Minimum version of sphinx required
-needs_sphinx = '1.8'
-
-# Ignore any .rst files in the venv/ directory.
-exclude_patterns = ['venv/*', 'README.rst']
-venvdir = os.getenv('VENVDIR')
-if venvdir is not None:
-    exclude_patterns.append(venvdir + '/*')
-
-# Disable Docutils smartquotes for several translations
-smartquotes_excludes = {
-    'languages': ['ja', 'fr', 'zh_TW', 'zh_CN'], 'builders': ['man', 'text'],
-}
+# Require Sphinx 1.2 for build.
+needs_sphinx = '1.2'
 
 # Avoid a warning with Sphinx >= 2.0
 master_doc = 'contents'
@@ -64,17 +47,8 @@ master_doc = 'contents'
 # Options for HTML output
 # -----------------------
 
-# Use our custom theme.
-html_theme = 'python_docs_theme'
-html_theme_path = ['tools']
-html_theme_options = {
-    'collapsiblesidebar': True,
-    'issues_url': 'https://docs.python.org/3/bugs.html',
-    'root_include_title': False   # We use the version switcher instead.
-}
-
-# Short title used e.g. for <title> HTML tags.
-html_short_title = '%s Documentation' % release
+html_theme = 'default'
+html_theme_options = {'collapsiblesidebar': True}
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -85,9 +59,6 @@ templates_path = ['tools/templates']
 
 # Custom sidebar templates, filenames relative to this file.
 html_sidebars = {
-    # Defaults taken from http://www.sphinx-doc.org/en/stable/config.html#confval-html_sidebars
-    # Removes the quick search block
-    '**': ['localtoc.html', 'relations.html', 'customsourcelink.html'],
     'index': ['indexsidebar.html'],
 }
 
@@ -98,7 +69,7 @@ html_additional_pages = {
 }
 
 # Output an OpenSearch description file.
-html_use_opensearch = 'https://docs.python.org/' + version
+html_use_opensearch = 'https://docs.python.org/'
 
 # Additional static files.
 html_static_path = ['tools/static']

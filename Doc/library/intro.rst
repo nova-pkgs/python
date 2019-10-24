@@ -1,3 +1,4 @@
+
 .. _library-intro:
 
 ************
@@ -30,8 +31,10 @@ requires them; yet others are available only when a particular configuration
 option was chosen at the time when Python was compiled and installed.
 
 This manual is organized "from the inside out:" it first describes the built-in
-functions, data types and exceptions, and finally the modules, grouped in
-chapters of related modules.
+data types, then the built-in functions and exceptions, and finally the modules,
+grouped in chapters of related modules.  The ordering of the chapters as well as
+the ordering of the modules within each chapter is roughly from most relevant to
+least important.
 
 This means that if you start reading this manual from the start, and skip to the
 next chapter when you get bored, you will get a reasonable overview of the
@@ -46,17 +49,4 @@ read the sections of this manual, it helps to start with chapter
 this material.
 
 Let the show begin!
-
-
-.. _availability:
-
-Notes on availability
-=====================
-
-* An "Availability: Unix" note means that this function is commonly found on
-  Unix systems.  It does not make any claims about its existence on a specific
-  operating system.
-
-* If not separately noted, all functions that claim "Availability: Unix" are
-  supported on Mac OS X, which builds on a Unix core.
 

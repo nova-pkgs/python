@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _supporting-cycle-detection:
 
@@ -11,6 +11,9 @@ objects which may also be containers.  Types which do not store references to
 other objects, or which only store references to atomic types (such as numbers
 or strings), do not need to provide any explicit support for garbage
 collection.
+
+.. An example showing the use of these interfaces can be found in "Supporting the
+.. Cycle Collector (XXX not found: ../ext/example-cycle-support.html)".
 
 To create a container type, the :c:member:`~PyTypeObject.tp_flags` field of the type object must
 include the :const:`Py_TPFLAGS_HAVE_GC` and provide an implementation of the
@@ -45,11 +48,19 @@ Constructors for container types must conform to two rules:
    Analogous to :c:func:`PyObject_NewVar` but for container objects with the
    :const:`Py_TPFLAGS_HAVE_GC` flag set.
 
+   .. versionchanged:: 2.5
+      This function used an :c:type:`int` type for *size*. This might require
+      changes in your code for properly supporting 64-bit systems.
+
 
 .. c:function:: TYPE* PyObject_GC_Resize(TYPE, PyVarObject *op, Py_ssize_t newsize)
 
    Resize an object allocated by :c:func:`PyObject_NewVar`.  Returns the
    resized object or *NULL* on failure.  *op* must not be tracked by the collector yet.
+
+   .. versionchanged:: 2.5
+      This function used an :c:type:`int` type for *newsize*. This might
+      require changes in your code for properly supporting 64-bit systems.
 
 
 .. c:function:: void PyObject_GC_Track(PyObject *op)
@@ -60,6 +71,11 @@ Constructors for container types must conform to two rules:
    followed by the :c:member:`~PyTypeObject.tp_traverse` handler become valid, usually near the
    end of the constructor.
 
+
+.. c:function:: void _PyObject_GC_TRACK(PyObject *op)
+
+   A macro version of :c:func:`PyObject_GC_Track`.  It should not be used for
+   extension modules.
 
 Similarly, the deallocator for the object must conform to a similar pair of
 rules:
@@ -85,10 +101,10 @@ rules:
    the fields used by the :c:member:`~PyTypeObject.tp_traverse` handler become invalid.
 
 
-.. versionchanged:: 3.8
+.. c:function:: void _PyObject_GC_UNTRACK(PyObject *op)
 
-   The :c:func:`_PyObject_GC_TRACK` and :c:func:`_PyObject_GC_UNTRACK` macros
-   have been removed from the public C API.
+   A macro version of :c:func:`PyObject_GC_UnTrack`.  It should not be used for
+   extension modules.
 
 The :c:member:`~PyTypeObject.tp_traverse` handler accepts a function parameter of this type:
 
@@ -133,6 +149,8 @@ must name its arguments exactly *visit* and *arg*:
           Py_VISIT(self->bar);
           return 0;
       }
+
+   .. versionadded:: 2.4
 
 The :c:member:`~PyTypeObject.tp_clear` handler must be of the :c:type:`inquiry` type, or *NULL*
 if the object is immutable.

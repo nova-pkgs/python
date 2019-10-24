@@ -48,6 +48,9 @@
             The arguments of the set method if any, packed in a tuple.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import bdb as _bdb
 import sys
 import os
@@ -69,6 +72,8 @@ class BdbNotExpectedError(BdbException): """Unexpected result."""
 # case. The full list of breakpoints and their attributes is also printed
 # after each 'line' event where a breakpoint has been hit.
 dry_run = 0
+
+__file__ = os.path.splitext(__file__)[0] + '.py'
 
 def reset_Breakpoint():
     _bdb.Breakpoint.next = 1
@@ -96,12 +101,12 @@ def info_breakpoints():
         info += '\n'
     return info
 
-class Bdb(_bdb.Bdb):
+class Bdb(_bdb.Bdb, object):
     """Extend Bdb to enhance test coverage."""
 
     def trace_dispatch(self, frame, event, arg):
         self.currentbp = None
-        return super().trace_dispatch(frame, event, arg)
+        return super(Bdb, self).trace_dispatch(frame, event, arg)
 
     def set_break(self, filename, lineno, temporary=False, cond=None,
                   funcname=None):
@@ -117,14 +122,35 @@ class Bdb(_bdb.Bdb):
             lineno = code.co_firstlineno
             funcname = code.co_name
 
-        res = super().set_break(filename, lineno, temporary=temporary,
-                                 cond=cond, funcname=funcname)
+        res = super(Bdb, self).set_break(filename, lineno,
+                        temporary=temporary, cond=cond, funcname=funcname)
         if isinstance(res, str):
             raise BdbError(res)
         return res
 
+    # Back port of get_bpbynumber() from bdb.Bdb in Python 3.
+    def get_bpbynumber(self, arg):
+        """Return a breakpoint by its index in Breakpoint.bybpnumber.
+
+        For invalid arg values or if the breakpoint doesn't exist,
+        raise a ValueError.
+        """
+        if not arg:
+            raise ValueError('Breakpoint number expected')
+        try:
+            number = int(arg)
+        except ValueError:
+            raise ValueError('Non-numeric breakpoint number %s' % arg)
+        try:
+            bp = _bdb.Breakpoint.bpbynumber[number]
+        except IndexError:
+            raise ValueError('Breakpoint number %d out of range' % number)
+        if bp is None:
+            raise ValueError('Breakpoint %d already deleted' % number)
+        return bp
+
     def get_stack(self, f, t):
-        self.stack, self.index = super().get_stack(f, t)
+        self.stack, self.index = super(Bdb, self).get_stack(f, t)
         self.frame = self.stack[self.index][0]
         return self.stack, self.index
 
@@ -164,7 +190,7 @@ class Tracer(Bdb):
     """A tracer for testing the bdb module."""
 
     def __init__(self, expect_set, skip=None, dry_run=False, test_case=None):
-        super().__init__(skip=skip)
+        super(Tracer, self).__init__(skip=skip)
         self.expect_set = expect_set
         self.dry_run = dry_run
         self.header = ('Dry-run results for %s:' % test_case if
@@ -188,13 +214,13 @@ class Tracer(Bdb):
 
         if event == 'exception':
             try:
-                res = super().trace_dispatch(frame, event, arg)
+                res = super(Tracer, self).trace_dispatch(frame, event, arg)
                 return res
             except BdbException as e:
                 self.cur_except = e
                 return self.trace_dispatch
         else:
-            return super().trace_dispatch(frame, event, arg)
+            return super(Tracer, self).trace_dispatch(frame, event, arg)
 
     def user_call(self, frame, argument_list):
         # Adopt the same behavior as pdb and, as a side effect, skip also the
@@ -372,11 +398,7 @@ class Tracer(Bdb):
             set_method(self.frame)
             return
         elif set_type == 'until':
-            lineno = None
-            if args:
-                lineno = self.lno_rel2abs(self.frame.f_code.co_filename,
-                                          args[0])
-            set_method(self.frame, lineno)
+            set_method(self.frame)
             return
 
         # The following set methods do not give back control to the tracer and
@@ -384,10 +406,10 @@ class Tracer(Bdb):
         if (args and set_type in ('break', 'clear', 'ignore', 'enable',
                                     'disable')) or set_type in ('up', 'down'):
             if set_type in ('break', 'clear'):
-                fname, lineno, *remain = args
+                fname = args[0]
+                lineno = args[1]
                 lineno = self.lno_rel2abs(fname, lineno)
-                args = [fname, lineno]
-                args.extend(remain)
+                args = [fname, lineno] + list(args[2:])
                 set_method(*args)
             elif set_type in ('ignore', 'enable', 'disable'):
                 set_method(*args)
@@ -417,17 +439,15 @@ class TracerRun():
         self.dry_run = test_case.dry_run
         self.tracer = Tracer(test_case.expect_set, skip=skip,
                              dry_run=self.dry_run, test_case=test_case.id())
-        self._original_tracer = None
 
     def __enter__(self):
         # test_pdb does not reset Breakpoint class attributes on exit :-(
         reset_Breakpoint()
-        self._original_tracer = sys.gettrace()
         return self.tracer
 
     def __exit__(self, type_=None, value=None, traceback=None):
         reset_Breakpoint()
-        sys.settrace(self._original_tracer)
+        sys.settrace(None)
 
         not_empty = ''
         if self.tracer.set_list:
@@ -526,25 +546,25 @@ def run_test(modules, set_list, skip=None):
     test.id = lambda : None
     test.expect_set = list(gen(repeat(()), iter(sl)))
     with create_modules(modules):
+        sys.path.append(os.getcwd())
         with TracerRun(test, skip=skip) as tracer:
             tracer.runcall(tfunc_import)
 
 @contextmanager
 def create_modules(modules):
     with test.support.temp_cwd():
-        sys.path.append(os.getcwd())
         try:
+            sys.path.insert(0, os.getcwd())
             for m in modules:
                 fname = m + '.py'
                 with open(fname, 'w') as f:
                     f.write(textwrap.dedent(modules[m]))
                 linecache.checkcache(fname)
-            importlib.invalidate_caches()
             yield
         finally:
+            sys.path.pop(0)
             for m in modules:
                 test.support.forget(m)
-            sys.path.pop()
 
 def break_in_func(funcname, fname=__file__, temporary=False, cond=None):
     return 'break', (fname, None, temporary, cond, funcname)
@@ -573,13 +593,7 @@ def tfunc_second():
 
 class BaseTestCase(unittest.TestCase):
     """Base class for all tests."""
-
     dry_run = dry_run
-
-    def fail(self, msg=None):
-        # Override fail() to use 'raise from None' to avoid repetition of the
-        # error message and traceback.
-        raise self.failureException(msg) from None
 
 class StateTestCase(BaseTestCase):
     """Test the step, next, return, until and quit 'set_' methods."""
@@ -594,19 +608,29 @@ class StateTestCase(BaseTestCase):
         with TracerRun(self) as tracer:
             tracer.runcall(tfunc_main)
 
-    def test_step_next_on_last_statement(self):
-        for set_type in ('step', 'next'):
-            with self.subTest(set_type=set_type):
-                self.expect_set = [
-                    ('line', 2, 'tfunc_main'),               ('step', ),
-                    ('line', 3, 'tfunc_main'),               ('step', ),
-                    ('call', 1, 'tfunc_first'),              ('break', (__file__, 3)),
-                    ('None', 1, 'tfunc_first'),              ('continue', ),
-                    ('line', 3, 'tfunc_first', ({1:1}, [])), (set_type, ),
-                    ('line', 4, 'tfunc_first'),              ('quit', ),
-                ]
-                with TracerRun(self) as tracer:
-                    tracer.runcall(tfunc_main)
+    def test_step_on_last_statement(self):
+        self.expect_set = [
+            ('line', 2, 'tfunc_main'),               ('step', ),
+            ('line', 3, 'tfunc_main'),               ('step', ),
+            ('call', 1, 'tfunc_first'),              ('break', (__file__, 3)),
+            ('None', 1, 'tfunc_first'),              ('continue', ),
+            ('line', 3, 'tfunc_first', ({1:1}, [])), ('step', ),
+            ('line', 4, 'tfunc_first'),              ('quit', ),
+        ]
+        with TracerRun(self) as tracer:
+            tracer.runcall(tfunc_main)
+
+    def test_next_on_last_statement(self):
+        self.expect_set = [
+            ('line', 2, 'tfunc_main'),               ('step', ),
+            ('line', 3, 'tfunc_main'),               ('step', ),
+            ('call', 1, 'tfunc_first'),              ('break', (__file__, 3)),
+            ('None', 1, 'tfunc_first'),              ('continue', ),
+            ('line', 3, 'tfunc_first', ({1:1}, [])), ('next', ),
+            ('line', 4, 'tfunc_first'),              ('quit', ),
+        ]
+        with TracerRun(self) as tracer:
+            tracer.runcall(tfunc_main)
 
     def test_next(self):
         self.expect_set = [
@@ -686,18 +710,8 @@ class StateTestCase(BaseTestCase):
             ('line', 2, 'tfunc_main'),  ('step', ),
             ('line', 3, 'tfunc_main'),  ('step', ),
             ('call', 1, 'tfunc_first'), ('step', ),
-            ('line', 2, 'tfunc_first'), ('until', (4, )),
-            ('line', 4, 'tfunc_first'), ('quit', ),
-        ]
-        with TracerRun(self) as tracer:
-            tracer.runcall(tfunc_main)
-
-    def test_until_with_too_large_count(self):
-        self.expect_set = [
-            ('line', 2, 'tfunc_main'),               break_in_func('tfunc_first'),
-            ('None', 2, 'tfunc_main'),               ('continue', ),
-            ('line', 2, 'tfunc_first', ({1:1}, [])), ('until', (9999, )),
-            ('return', 4, 'tfunc_first'),            ('quit', ),
+            ('line', 2, 'tfunc_first'), ('until', ),
+            ('line', 3, 'tfunc_first'), ('quit', ),
         ]
         with TracerRun(self) as tracer:
             tracer.runcall(tfunc_main)
@@ -707,8 +721,8 @@ class StateTestCase(BaseTestCase):
             ('line', 2, 'tfunc_main'),  ('step', ),
             ('line', 3, 'tfunc_main'),  ('step', ),
             ('call', 1, 'tfunc_first'), ('up', ),
-            ('None', 3, 'tfunc_main'),  ('until', (6, )),
-            ('line', 6, 'tfunc_main'),  ('quit', ),
+            ('None', 3, 'tfunc_main'),  ('until', ),
+            ('line', 4, 'tfunc_main'),  ('quit', ),
         ]
         with TracerRun(self) as tracer:
             tracer.runcall(tfunc_main)
@@ -726,16 +740,9 @@ class StateTestCase(BaseTestCase):
                 ('line', 2, 'tfunc_import'), ('step', ),
                 ('line', 3, 'tfunc_import'), ('quit', ),
             ]
-            skip = ('importlib*', 'zipimport', TEST_MODULE)
+            skip = ('importlib*', TEST_MODULE)
             with TracerRun(self, skip=skip) as tracer:
                 tracer.runcall(tfunc_import)
-
-    def test_skip_with_no_name_module(self):
-        # some frames have `globals` with no `__name__`
-        # for instance the second frame in this traceback
-        # exec(compile('raise ValueError()', '', 'exec'), {})
-        bdb = Bdb(skip=['anything*'])
-        self.assertIs(bdb.is_skipped_module(None), False)
 
     def test_down(self):
         # Check that set_down() raises BdbError at the newest frame.
@@ -861,7 +868,7 @@ class BreakpointTestCase(BaseTestCase):
         with create_modules(modules):
             self.expect_set = [
                 ('line', 2, 'tfunc_import'),
-                    break_in_func('func', TEST_MODULE_FNAME, False, '1 / 0'),
+                    break_in_func('func', TEST_MODULE_FNAME, False, '1 // 0'),
                 ('None', 2, 'tfunc_import'),       ('continue', ),
                 ('line', 3, 'func', ({1:1}, [])),  ('quit', ),
             ]
@@ -1011,140 +1018,6 @@ class IssuesTestCase(BaseTestCase):
                 ('line', 3, 'func', ({1:1}, [])), ('step', ),
                 ('return', 3, 'func'),            ('step', ),
                 ('line', 5, 'main'),              ('quit', ),
-            ]
-            with TracerRun(self) as tracer:
-                tracer.runcall(tfunc_import)
-
-    def test_next_until_return_in_generator(self):
-        # Issue #16596.
-        # Check that set_next(), set_until() and set_return() do not treat the
-        # `yield` and `yield from` statements as if they were returns and stop
-        # instead in the current frame.
-        code = """
-            def test_gen():
-                yield 0
-                lno = 4
-                return 123
-
-            def main():
-                it = test_gen()
-                next(it)
-                next(it)
-                lno = 11
-        """
-        modules = { TEST_MODULE: code }
-        for set_type in ('next', 'until', 'return'):
-            with self.subTest(set_type=set_type):
-                with create_modules(modules):
-                    self.expect_set = [
-                        ('line', 2, 'tfunc_import'),
-                            break_in_func('test_gen', TEST_MODULE_FNAME),
-                        ('None', 2, 'tfunc_import'),          ('continue', ),
-                        ('line', 3, 'test_gen', ({1:1}, [])), (set_type, ),
-                    ]
-
-                    if set_type == 'return':
-                        self.expect_set.extend(
-                            [('exception', 10, 'main', StopIteration), ('step',),
-                             ('return', 10, 'main'),                   ('quit', ),
-                            ]
-                        )
-                    else:
-                        self.expect_set.extend(
-                            [('line', 4, 'test_gen'), ('quit', ),]
-                        )
-                    with TracerRun(self) as tracer:
-                        tracer.runcall(tfunc_import)
-
-    def test_next_command_in_generator_for_loop(self):
-        # Issue #16596.
-        code = """
-            def test_gen():
-                yield 0
-                lno = 4
-                yield 1
-                return 123
-
-            def main():
-                for i in test_gen():
-                    lno = 10
-                lno = 11
-        """
-        modules = { TEST_MODULE: code }
-        with create_modules(modules):
-            self.expect_set = [
-                ('line', 2, 'tfunc_import'),
-                    break_in_func('test_gen', TEST_MODULE_FNAME),
-                ('None', 2, 'tfunc_import'),             ('continue', ),
-                ('line', 3, 'test_gen', ({1:1}, [])),    ('next', ),
-                ('line', 4, 'test_gen'),                 ('next', ),
-                ('line', 5, 'test_gen'),                 ('next', ),
-                ('line', 6, 'test_gen'),                 ('next', ),
-                ('exception', 9, 'main', StopIteration), ('step', ),
-                ('line', 11, 'main'),                    ('quit', ),
-
-            ]
-            with TracerRun(self) as tracer:
-                tracer.runcall(tfunc_import)
-
-    def test_next_command_in_generator_with_subiterator(self):
-        # Issue #16596.
-        code = """
-            def test_subgen():
-                yield 0
-                return 123
-
-            def test_gen():
-                x = yield from test_subgen()
-                return 456
-
-            def main():
-                for i in test_gen():
-                    lno = 12
-                lno = 13
-        """
-        modules = { TEST_MODULE: code }
-        with create_modules(modules):
-            self.expect_set = [
-                ('line', 2, 'tfunc_import'),
-                    break_in_func('test_gen', TEST_MODULE_FNAME),
-                ('None', 2, 'tfunc_import'),              ('continue', ),
-                ('line', 7, 'test_gen', ({1:1}, [])),     ('next', ),
-                ('line', 8, 'test_gen'),                  ('next', ),
-                ('exception', 11, 'main', StopIteration), ('step', ),
-                ('line', 13, 'main'),                     ('quit', ),
-
-            ]
-            with TracerRun(self) as tracer:
-                tracer.runcall(tfunc_import)
-
-    def test_return_command_in_generator_with_subiterator(self):
-        # Issue #16596.
-        code = """
-            def test_subgen():
-                yield 0
-                return 123
-
-            def test_gen():
-                x = yield from test_subgen()
-                return 456
-
-            def main():
-                for i in test_gen():
-                    lno = 12
-                lno = 13
-        """
-        modules = { TEST_MODULE: code }
-        with create_modules(modules):
-            self.expect_set = [
-                ('line', 2, 'tfunc_import'),
-                    break_in_func('test_subgen', TEST_MODULE_FNAME),
-                ('None', 2, 'tfunc_import'),                  ('continue', ),
-                ('line', 3, 'test_subgen', ({1:1}, [])),      ('return', ),
-                ('exception', 7, 'test_gen', StopIteration),  ('return', ),
-                ('exception', 11, 'main', StopIteration),     ('step', ),
-                ('line', 13, 'main'),                         ('quit', ),
-
             ]
             with TracerRun(self) as tracer:
                 tracer.runcall(tfunc_import)

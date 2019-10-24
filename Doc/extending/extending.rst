@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 
 .. _extending-intro:
@@ -27,8 +27,7 @@ your system setup; details are given in later chapters.
    avoid writing C extensions and preserve portability to other implementations.
    For example, if your use case is calling C library functions or system calls,
    you should consider using the :mod:`ctypes` module or the `cffi
-   <https://cffi.readthedocs.io/>`_ library rather than writing
-   custom C code.
+   <https://cffi.readthedocs.org>`_ library rather than writing custom C code.
    These modules let you write Python code to interface with C code and are more
    portable between implementations of Python than writing and compiling a C
    extension module.
@@ -43,9 +42,7 @@ Let's create an extension module called ``spam`` (the favorite food of Monty
 Python fans...) and let's say we want to create a Python interface to the C
 library function :c:func:`system` [#]_. This function takes a null-terminated
 character string as argument and returns an integer.  We want this function to
-be callable from Python as follows:
-
-.. code-block:: pycon
+be callable from Python as follows::
 
    >>> import spam
    >>> status = spam.system("ls -l")
@@ -55,9 +52,8 @@ called ``spam``, the C file containing its implementation is called
 :file:`spammodule.c`; if the module name is very long, like ``spammify``, the
 module name can be just :file:`spammify.c`.)
 
-The first two lines of our file can be::
+The first line of our file can be::
 
-   #define PY_SSIZE_T_CLEAN
    #include <Python.h>
 
 which pulls in the Python API (you can add a comment describing the purpose of
@@ -68,9 +64,6 @@ the module and a copyright notice if you like).
    Since Python may define some pre-processor definitions which affect the standard
    headers on some systems, you *must* include :file:`Python.h` before any standard
    headers are included.
-
-   It is recommended to always define ``PY_SSIZE_T_CLEAN`` before including
-   ``Python.h``.  See :ref:`parsetuple` for a description of this macro.
 
 All user-visible symbols defined by :file:`Python.h` have a prefix of ``Py`` or
 ``PY``, except those defined in standard header files. For convenience, and
@@ -93,7 +86,7 @@ shortly how it ends up being called)::
        if (!PyArg_ParseTuple(args, "s", &command))
            return NULL;
        sts = system(command);
-       return PyLong_FromLong(sts);
+       return Py_BuildValue("i", sts);
    }
 
 There is a straightforward translation from the argument list in Python (for
@@ -101,8 +94,9 @@ example, the single expression ``"ls -l"``) to the arguments passed to the C
 function.  The C function always has two arguments, conventionally named *self*
 and *args*.
 
-The *self* argument points to the module object for module-level functions;
-for a method it would point to the object instance.
+For module functions, the *self* argument is *NULL* or a pointer selected while
+initializing the module (see :c:func:`Py_InitModule4`).  For a method, it would
+point to the object instance.
 
 The *args* argument will be a pointer to a Python tuple object containing the
 arguments.  Each item of the tuple corresponds to an argument in the call's
@@ -132,9 +126,10 @@ inside the interpreter; if this variable is *NULL* no exception has occurred.  A
 second global variable stores the "associated value" of the exception (the
 second argument to :keyword:`raise`).  A third variable contains the stack
 traceback in case the error originated in Python code.  These three variables
-are the C equivalents of the result in Python of :meth:`sys.exc_info` (see the
-section on module :mod:`sys` in the Python Library Reference).  It is important
-to know about them to understand how errors are passed around.
+are the C equivalents of the Python variables ``sys.exc_type``,
+``sys.exc_value`` and ``sys.exc_traceback`` (see the section on module
+:mod:`sys` in the Python Library Reference).  It is important to know about them
+to understand how errors are passed around.
 
 The Python API defines a number of functions to set various types of exceptions.
 
@@ -182,7 +177,7 @@ error on to the interpreter but wants to handle it completely by itself
 Every failing :c:func:`malloc` call must be turned into an exception --- the
 direct caller of :c:func:`malloc` (or :c:func:`realloc`) must call
 :c:func:`PyErr_NoMemory` and return a failure indicator itself.  All the
-object-creating functions (for example, :c:func:`PyLong_FromLong`) already do
+object-creating functions (for example, :c:func:`PyInt_FromLong`) already do
 this, so this note is only relevant to those who call :c:func:`malloc` directly.
 
 Also note that, with the important exception of :c:func:`PyArg_ParseTuple` and
@@ -208,28 +203,21 @@ usually declare a static object variable at the beginning of your file::
 
    static PyObject *SpamError;
 
-and initialize it in your module's initialization function (:c:func:`PyInit_spam`)
-with an exception object::
+and initialize it in your module's initialization function (:c:func:`initspam`)
+with an exception object (leaving out the error checking for now)::
 
    PyMODINIT_FUNC
-   PyInit_spam(void)
+   initspam(void)
    {
        PyObject *m;
 
-       m = PyModule_Create(&spammodule);
+       m = Py_InitModule("spam", SpamMethods);
        if (m == NULL)
-           return NULL;
+           return;
 
        SpamError = PyErr_NewException("spam.error", NULL, NULL);
-       Py_XINCREF(SpamError);
-       if (PyModule_AddObject(m, "error", SpamError) < 0) {
-           Py_XDECREF(SpamError);
-           Py_CLEAR(SpamError);
-           Py_DECREF(m);
-           return NULL;
-       }
-
-       return m;
+       Py_INCREF(SpamError);
+       PyModule_AddObject(m, "error", SpamError);
    }
 
 Note that the Python name for the exception object is :exc:`spam.error`.  The
@@ -292,9 +280,12 @@ the string we just got from :c:func:`PyArg_ParseTuple`::
    sts = system(command);
 
 Our :func:`spam.system` function must return the value of :c:data:`sts` as a
-Python object.  This is done using the function :c:func:`PyLong_FromLong`. ::
+Python object.  This is done using the function :c:func:`Py_BuildValue`, which is
+something like the inverse of :c:func:`PyArg_ParseTuple`: it takes a format
+string and an arbitrary number of C values, and returns a new Python object.
+More info on :c:func:`Py_BuildValue` is given later. ::
 
-   return PyLong_FromLong(sts);
+   return Py_BuildValue("i", sts);
 
 In this case, it will return an integer object.  (Yes, even integers are objects
 on the heap in Python!)
@@ -343,76 +334,54 @@ accept a third ``PyObject *`` parameter which will be a dictionary of keywords.
 Use :c:func:`PyArg_ParseTupleAndKeywords` to parse the arguments to such a
 function.
 
-The method table must be referenced in the module definition structure::
-
-   static struct PyModuleDef spammodule = {
-       PyModuleDef_HEAD_INIT,
-       "spam",   /* name of module */
-       spam_doc, /* module documentation, may be NULL */
-       -1,       /* size of per-interpreter state of the module,
-                    or -1 if the module keeps state in global variables. */
-       SpamMethods
-   };
-
-This structure, in turn, must be passed to the interpreter in the module's
+The method table must be passed to the interpreter in the module's
 initialization function.  The initialization function must be named
-:c:func:`PyInit_name`, where *name* is the name of the module, and should be the
+:c:func:`initname`, where *name* is the name of the module, and should be the
 only non-\ ``static`` item defined in the module file::
 
    PyMODINIT_FUNC
-   PyInit_spam(void)
+   initspam(void)
    {
-       return PyModule_Create(&spammodule);
+       (void) Py_InitModule("spam", SpamMethods);
    }
 
-Note that PyMODINIT_FUNC declares the function as ``PyObject *`` return type,
-declares any special linkage declarations required by the platform, and for C++
+Note that PyMODINIT_FUNC declares the function as ``void`` return type,
+declares any special linkage declarations required by the platform, and for  C++
 declares the function as ``extern "C"``.
 
 When the Python program imports module :mod:`spam` for the first time,
-:c:func:`PyInit_spam` is called. (See below for comments about embedding Python.)
-It calls :c:func:`PyModule_Create`, which returns a module object, and
+:c:func:`initspam` is called. (See below for comments about embedding Python.)
+It calls :c:func:`Py_InitModule`, which creates a "module object" (which is
+inserted in the dictionary ``sys.modules`` under the key ``"spam"``), and
 inserts built-in function objects into the newly created module based upon the
-table (an array of :c:type:`PyMethodDef` structures) found in the module definition.
-:c:func:`PyModule_Create` returns a pointer to the module object
-that it creates.  It may abort with a fatal error for
+table (an array of :c:type:`PyMethodDef` structures) that was passed as its
+second argument. :c:func:`Py_InitModule` returns a pointer to the module object
+that it creates (which is unused here).  It may abort with a fatal error for
 certain errors, or return *NULL* if the module could not be initialized
-satisfactorily. The init function must return the module object to its caller,
-so that it then gets inserted into ``sys.modules``.
+satisfactorily.
 
-When embedding Python, the :c:func:`PyInit_spam` function is not called
-automatically unless there's an entry in the :c:data:`PyImport_Inittab` table.
-To add the module to the initialization table, use :c:func:`PyImport_AppendInittab`,
-optionally followed by an import of the module::
+When embedding Python, the :c:func:`initspam` function is not called
+automatically unless there's an entry in the :c:data:`_PyImport_Inittab` table.
+The easiest way to handle this is to statically initialize your
+statically-linked modules by directly calling :c:func:`initspam` after the call
+to :c:func:`Py_Initialize`::
 
    int
    main(int argc, char *argv[])
    {
-       wchar_t *program = Py_DecodeLocale(argv[0], NULL);
-       if (program == NULL) {
-           fprintf(stderr, "Fatal error: cannot decode argv[0]\n");
-           exit(1);
-       }
-
-       /* Add a built-in module, before Py_Initialize */
-       PyImport_AppendInittab("spam", PyInit_spam);
-
        /* Pass argv[0] to the Python interpreter */
-       Py_SetProgramName(program);
+       Py_SetProgramName(argv[0]);
 
        /* Initialize the Python interpreter.  Required. */
        Py_Initialize();
 
-       /* Optionally import the module; alternatively,
-          import can be deferred until the embedded script
-          imports it. */
-       PyImport_ImportModule("spam");
+       /* Add a static module */
+       initspam();
 
        ...
 
-       PyMem_RawFree(program);
-       return 0;
-   }
+An example may be found in the file :file:`Demo/embed/demo.c` in the Python
+source distribution.
 
 .. note::
 
@@ -420,18 +389,15 @@ optionally followed by an import of the module::
    multiple interpreters within a process (or following a :c:func:`fork` without an
    intervening :c:func:`exec`) can create problems for some extension modules.
    Extension module authors should exercise caution when initializing internal data
-   structures.
+   structures. Note also that the :func:`reload` function can be used with
+   extension modules, and will call the module initialization function
+   (:c:func:`initspam` in the example), but will not load the module again if it was
+   loaded from a dynamically loadable object file (:file:`.so` on Unix,
+   :file:`.dll` on Windows).
 
 A more substantial example module is included in the Python source distribution
 as :file:`Modules/xxmodule.c`.  This file may be used as a  template or simply
 read as an example.
-
-.. note::
-
-   Unlike our ``spam`` example, ``xxmodule`` uses *multi-phase initialization*
-   (new in Python 3.5), where a PyModuleDef structure is returned from
-   ``PyInit_spam``, and creation of the module is left to the import machinery.
-   For details on multi-phase initialization, see :PEP:`489`.
 
 
 .. _compilation:
@@ -451,9 +417,7 @@ part of the Python interpreter, you will have to change the configuration setup
 and rebuild the interpreter.  Luckily, this is very simple on Unix: just place
 your file (:file:`spammodule.c` for example) in the :file:`Modules/` directory
 of an unpacked source distribution, add a line to the file
-:file:`Modules/Setup.local` describing your file:
-
-.. code-block:: sh
+:file:`Modules/Setup.local` describing your file::
 
    spam spammodule.o
 
@@ -464,9 +428,7 @@ subdirectory, but then you must first rebuild :file:`Makefile` there by running
 :file:`Setup` file.)
 
 If your module requires additional libraries to link with, these can be listed
-on the line in the configuration file as well, for instance:
-
-.. code-block:: sh
+on the line in the configuration file as well, for instance::
 
    spam spammodule.o -lX11
 
@@ -555,9 +517,8 @@ or more format codes between parentheses.  For example::
 :c:func:`PyObject_CallObject` returns a Python object pointer: this is the return
 value of the Python function.  :c:func:`PyObject_CallObject` is
 "reference-count-neutral" with respect to its arguments.  In the example a new
-tuple was created to serve as the argument list, which is
-:c:func:`Py_DECREF`\ -ed immediately after the :c:func:`PyObject_CallObject`
-call.
+tuple was created to serve as the argument list, which is :c:func:`Py_DECREF`\
+-ed immediately after the :c:func:`PyObject_CallObject` call.
 
 The return value of :c:func:`PyObject_CallObject` is "new": either it is a brand
 new object, or it is an existing object whose reference count has been
@@ -625,7 +586,7 @@ Extracting Parameters in Extension Functions
 
 The :c:func:`PyArg_ParseTuple` function is declared as follows::
 
-   int PyArg_ParseTuple(PyObject *arg, const char *format, ...);
+   int PyArg_ParseTuple(PyObject *arg, char *format, ...);
 
 The *arg* argument must be a tuple object containing an argument list passed
 from Python to a C function.  The *format* argument must be a format string,
@@ -643,16 +604,11 @@ Note that any Python object references which are provided to the caller are
 
 Some example calls::
 
-   #define PY_SSIZE_T_CLEAN  /* Make "s#" use Py_ssize_t rather than int. */
-   #include <Python.h>
-
-::
-
    int ok;
    int i, j;
    long k, l;
    const char *s;
-   Py_ssize_t size;
+   int size;
 
    ok = PyArg_ParseTuple(args, ""); /* No arguments */
        /* Python call: f() */
@@ -718,7 +674,7 @@ Keyword Parameters for Extension Functions
 The :c:func:`PyArg_ParseTupleAndKeywords` function is declared as follows::
 
    int PyArg_ParseTupleAndKeywords(PyObject *arg, PyObject *kwdict,
-                                   const char *format, char *kwlist[], ...);
+                                   char *format, char *kwlist[], ...);
 
 The *arg* and *format* parameters are identical to those of the
 :c:func:`PyArg_ParseTuple` function.  The *kwdict* parameter is the dictionary of
@@ -739,16 +695,15 @@ it returns false and raises an appropriate exception.
 Here is an example module which uses keywords, based on an example by Geoff
 Philbrick (philbrick@hks.com)::
 
-   #define PY_SSIZE_T_CLEAN  /* Make "s#" use Py_ssize_t rather than int. */
-   #include <Python.h>
+   #include "Python.h"
 
    static PyObject *
    keywdarg_parrot(PyObject *self, PyObject *args, PyObject *keywds)
    {
        int voltage;
-       const char *state = "a stiff";
-       const char *action = "voom";
-       const char *type = "Norwegian Blue";
+       char *state = "a stiff";
+       char *action = "voom";
+       char *type = "Norwegian Blue";
 
        static char *kwlist[] = {"voltage", "state", "action", "type", NULL};
 
@@ -760,7 +715,9 @@ Philbrick (philbrick@hks.com)::
               action, voltage);
        printf("-- Lovely plumage, the %s -- It's %s!\n", type, state);
 
-       Py_RETURN_NONE;
+       Py_INCREF(Py_None);
+
+       return Py_None;
    }
 
    static PyMethodDef keywdarg_methods[] = {
@@ -768,23 +725,18 @@ Philbrick (philbrick@hks.com)::
         * only take two PyObject* parameters, and keywdarg_parrot() takes
         * three.
         */
-       {"parrot", (PyCFunction)(void(*)(void))keywdarg_parrot, METH_VARARGS | METH_KEYWORDS,
+       {"parrot", (PyCFunction)keywdarg_parrot, METH_VARARGS | METH_KEYWORDS,
         "Print a lovely skit to standard output."},
        {NULL, NULL, 0, NULL}   /* sentinel */
    };
 
-   static struct PyModuleDef keywdargmodule = {
-       PyModuleDef_HEAD_INIT,
-       "keywdarg",
-       NULL,
-       -1,
-       keywdarg_methods
-   };
+::
 
-   PyMODINIT_FUNC
-   PyInit_keywdarg(void)
+   void
+   initkeywdarg(void)
    {
-       return PyModule_Create(&keywdargmodule);
+     /* Create the module and add the functions */
+     Py_InitModule("keywdarg", keywdarg_methods);
    }
 
 
@@ -796,7 +748,7 @@ Building Arbitrary Values
 This function is the counterpart to :c:func:`PyArg_ParseTuple`.  It is declared
 as follows::
 
-   PyObject *Py_BuildValue(const char *format, ...);
+   PyObject *Py_BuildValue(char *format, ...);
 
 It recognizes a set of format units similar to the ones recognized by
 :c:func:`PyArg_ParseTuple`, but the arguments (which are input to the function,
@@ -819,10 +771,8 @@ Examples (to the left the call, to the right the resulting Python value):
    Py_BuildValue("i", 123)                  123
    Py_BuildValue("iii", 123, 456, 789)      (123, 456, 789)
    Py_BuildValue("s", "hello")              'hello'
-   Py_BuildValue("y", "hello")              b'hello'
    Py_BuildValue("ss", "hello", "world")    ('hello', 'world')
    Py_BuildValue("s#", "hello", 4)          'hell'
-   Py_BuildValue("y#", "hello", 4)          b'hell'
    Py_BuildValue("()")                      ()
    Py_BuildValue("(i)", 123)                (123,)
    Py_BuildValue("(ii)", 123, 456)          (123, 456)
@@ -900,15 +850,19 @@ reclaim the memory belonging to any objects in a reference cycle, or referenced
 from the objects in the cycle, even though there are no further references to
 the cycle itself.
 
-The cycle detector is able to detect garbage cycles and can reclaim them.
-The :mod:`gc` module exposes a way to run the detector (the
+The cycle detector is able to detect garbage cycles and can reclaim them so long
+as there are no finalizers implemented in Python (:meth:`__del__` methods).
+When there are such finalizers, the detector exposes the cycles through the
+:mod:`gc` module (specifically, the :attr:`~gc.garbage` variable in that module).
+The :mod:`gc` module also exposes a way to run the detector (the
 :func:`~gc.collect` function), as well as configuration
 interfaces and the ability to disable the detector at runtime.  The cycle
 detector is considered an optional component; though it is included by default,
 it can be disabled at build time using the :option:`!--without-cycle-gc` option
-to the :program:`configure` script on Unix platforms (including Mac OS X).  If
-the cycle detector is disabled in this way, the :mod:`gc` module will not be
-available.
+to the :program:`configure` script on Unix platforms (including Mac OS X) or by
+removing the definition of ``WITH_CYCLE_GC`` in the :file:`pyconfig.h` header on
+other platforms.  If the cycle detector is disabled in this way, the :mod:`gc`
+module will not be available.
 
 
 .. _refcountsinpython:
@@ -964,10 +918,10 @@ reference or not.
 
 Most functions that return a reference to an object pass on ownership with the
 reference.  In particular, all functions whose function it is to create a new
-object, such as :c:func:`PyLong_FromLong` and :c:func:`Py_BuildValue`, pass
+object, such as :c:func:`PyInt_FromLong` and :c:func:`Py_BuildValue`, pass
 ownership to the receiver.  Even if the object is not actually new, you still
 receive ownership of a new reference to that object.  For instance,
-:c:func:`PyLong_FromLong` maintains a cache of popular values and can return a
+:c:func:`PyInt_FromLong` maintains a cache of popular values and can return a
 reference to a cached item.
 
 Many functions that extract objects from other objects also transfer ownership
@@ -1017,7 +971,7 @@ an unrelated object while borrowing a reference to a list item.  For instance::
    {
        PyObject *item = PyList_GetItem(list, 0);
 
-       PyList_SetItem(list, 1, PyLong_FromLong(0L));
+       PyList_SetItem(list, 1, PyInt_FromLong(0L));
        PyObject_Print(item, stdout, 0); /* BUG! */
    }
 
@@ -1049,7 +1003,7 @@ increment the reference count.  The correct version of the function reads::
        PyObject *item = PyList_GetItem(list, 0);
 
        Py_INCREF(item);
-       PyList_SetItem(list, 1, PyLong_FromLong(0L));
+       PyList_SetItem(list, 1, PyInt_FromLong(0L));
        PyObject_Print(item, stdout, 0);
        Py_DECREF(item);
    }
@@ -1234,12 +1188,12 @@ The function :c:func:`spam_system` is modified in a trivial way::
        if (!PyArg_ParseTuple(args, "s", &command))
            return NULL;
        sts = PySpam_System(command);
-       return PyLong_FromLong(sts);
+       return Py_BuildValue("i", sts);
    }
 
 In the beginning of the module, right after the line ::
 
-   #include <Python.h>
+   #include "Python.h"
 
 two more lines must be added::
 
@@ -1251,15 +1205,15 @@ exporting module, not a client module. Finally, the module's initialization
 function must take care of initializing the C API pointer array::
 
    PyMODINIT_FUNC
-   PyInit_spam(void)
+   initspam(void)
    {
        PyObject *m;
        static void *PySpam_API[PySpam_API_pointers];
        PyObject *c_api_object;
 
-       m = PyModule_Create(&spammodule);
+       m = Py_InitModule("spam", SpamMethods);
        if (m == NULL)
-           return NULL;
+           return;
 
        /* Initialize the C API pointer array */
        PySpam_API[PySpam_System_NUM] = (void *)PySpam_System;
@@ -1267,17 +1221,12 @@ function must take care of initializing the C API pointer array::
        /* Create a Capsule containing the API pointer array's address */
        c_api_object = PyCapsule_New((void *)PySpam_API, "spam._C_API", NULL);
 
-       if (PyModule_AddObject(m, "_C_API", c_api_object) < 0) {
-           Py_XDECREF(c_api_object);
-           Py_DECREF(m);
-           return NULL;
-       }
-
-       return m;
+       if (c_api_object != NULL)
+           PyModule_AddObject(m, "_C_API", c_api_object);
    }
 
 Note that ``PySpam_API`` is declared ``static``; otherwise the pointer
-array would disappear when :func:`PyInit_spam` terminates!
+array would disappear when :func:`initspam` terminates!
 
 The bulk of the work is in the header file :file:`spammodule.h`, which looks
 like this::
@@ -1335,17 +1284,16 @@ All that a client module must do in order to have access to the function
 :c:func:`import_spam` in its initialization function::
 
    PyMODINIT_FUNC
-   PyInit_client(void)
+   initclient(void)
    {
        PyObject *m;
 
-       m = PyModule_Create(&clientmodule);
+       m = Py_InitModule("client", ClientMethods);
        if (m == NULL)
-           return NULL;
+           return;
        if (import_spam() < 0)
-           return NULL;
+           return;
        /* additional initialization can happen here */
-       return m;
    }
 
 The main disadvantage of this approach is that the file :file:`spammodule.h` is
@@ -1373,3 +1321,4 @@ code distribution).
 
 .. [#] These guarantees don't hold when you use the "old" style calling convention ---
    this is still found in much existing code.
+

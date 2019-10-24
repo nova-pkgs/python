@@ -1,12 +1,17 @@
 """Test cases for the fnmatch module."""
 
+from test import test_support
 import unittest
 import os
-import warnings
 
-from fnmatch import fnmatch, fnmatchcase, translate, filter
+from fnmatch import (fnmatch, fnmatchcase, translate, filter,
+                     _MAXCACHE, _cache, _purge)
+
 
 class FnmatchTestCase(unittest.TestCase):
+
+    def tearDown(self):
+        _purge()
 
     def check_match(self, filename, pattern, should_match=True, fn=fnmatch):
         if should_match:
@@ -45,11 +50,17 @@ class FnmatchTestCase(unittest.TestCase):
         check('\nfoo', 'foo*', False)
         check('\n', '*')
 
-    def test_mix_bytes_str(self):
-        self.assertRaises(TypeError, fnmatch, 'test', b'*')
-        self.assertRaises(TypeError, fnmatch, b'test', '*')
-        self.assertRaises(TypeError, fnmatchcase, 'test', b'*')
-        self.assertRaises(TypeError, fnmatchcase, b'test', '*')
+    def test_mix_unicode_str(self):
+        check = self.check_match
+        check('test', u'*')
+        check(u'test', '*')
+        check('test', u'*', fn=fnmatchcase)
+        check(u'test', '*', fn=fnmatchcase)
+        with test_support.check_warnings(("", UnicodeWarning), quiet=True):
+            check('test\xff', u'*\xff')
+            check(u'test\xff', '*\xff')
+            check('test\xff', u'*\xff', fn=fnmatchcase)
+            check(u'test\xff', '*\xff', fn=fnmatchcase)
 
     def test_fnmatchcase(self):
         check = self.check_match
@@ -63,10 +74,23 @@ class FnmatchTestCase(unittest.TestCase):
         check('usr/bin', 'usr\\bin', False, fnmatchcase)
         check('usr\\bin', 'usr\\bin', True, fnmatchcase)
 
-    def test_bytes(self):
-        self.check_match(b'test', b'te*')
-        self.check_match(b'test\xff', b'te*\xff')
-        self.check_match(b'foo\nbar', b'foo*')
+    def test_cache_clearing(self):
+        # check that caches do not grow too large
+        # http://bugs.python.org/issue7846
+
+        # string pattern cache
+        for i in range(_MAXCACHE + 1):
+            fnmatch('foo', '?' * i)
+
+        self.assertLessEqual(len(_cache), _MAXCACHE)
+
+    @test_support.requires_unicode
+    def test_unicode(self):
+        with test_support.check_warnings(("", UnicodeWarning), quiet=True):
+            self.check_match(u'test', u'te*')
+            self.check_match(u'test\xff', u'te*\xff')
+            self.check_match(u'test'+unichr(0x20ac), u'te*'+unichr(0x20ac))
+            self.check_match(u'foo\nbar', u'foo*')
 
     def test_case(self):
         ignorecase = os.path.normcase('ABC') == os.path.normcase('abc')
@@ -84,29 +108,18 @@ class FnmatchTestCase(unittest.TestCase):
         check('usr/bin', 'usr\\bin', normsep)
         check('usr\\bin', 'usr\\bin')
 
-    def test_warnings(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter('error', Warning)
-            check = self.check_match
-            check('[', '[[]')
-            check('&', '[a&&b]')
-            check('|', '[a||b]')
-            check('~', '[a~~b]')
-            check(',', '[a-z+--A-Z]')
-            check('.', '[a-z--/A-Z]')
-
 
 class TranslateTestCase(unittest.TestCase):
 
     def test_translate(self):
-        self.assertEqual(translate('*'), r'(?s:.*)\Z')
-        self.assertEqual(translate('?'), r'(?s:.)\Z')
-        self.assertEqual(translate('a?b*'), r'(?s:a.b.*)\Z')
-        self.assertEqual(translate('[abc]'), r'(?s:[abc])\Z')
-        self.assertEqual(translate('[]]'), r'(?s:[]])\Z')
-        self.assertEqual(translate('[!x]'), r'(?s:[^x])\Z')
-        self.assertEqual(translate('[^x]'), r'(?s:[\^x])\Z')
-        self.assertEqual(translate('[x'), r'(?s:\[x)\Z')
+        self.assertEqual(translate('*'), r'.*\Z(?ms)')
+        self.assertEqual(translate('?'), r'.\Z(?ms)')
+        self.assertEqual(translate('a?b*'), r'a.b.*\Z(?ms)')
+        self.assertEqual(translate('[abc]'), r'[abc]\Z(?ms)')
+        self.assertEqual(translate('[]]'), r'[]]\Z(?ms)')
+        self.assertEqual(translate('[!x]'), r'[^x]\Z(?ms)')
+        self.assertEqual(translate('[^x]'), r'[\^x]\Z(?ms)')
+        self.assertEqual(translate('[x'), r'\[x\Z(?ms)')
 
 
 class FilterTestCase(unittest.TestCase):
@@ -114,12 +127,20 @@ class FilterTestCase(unittest.TestCase):
     def test_filter(self):
         self.assertEqual(filter(['Python', 'Ruby', 'Perl', 'Tcl'], 'P*'),
                          ['Python', 'Perl'])
-        self.assertEqual(filter([b'Python', b'Ruby', b'Perl', b'Tcl'], b'P*'),
-                         [b'Python', b'Perl'])
+        self.assertEqual(filter([u'Python', u'Ruby', u'Perl', u'Tcl'], u'P*'),
+                         [u'Python', u'Perl'])
+        with test_support.check_warnings(("", UnicodeWarning), quiet=True):
+            self.assertEqual(filter([u'test\xff'], u'*\xff'), [u'test\xff'])
 
+    @test_support.requires_unicode
     def test_mix_bytes_str(self):
-        self.assertRaises(TypeError, filter, ['test'], b'*')
-        self.assertRaises(TypeError, filter, [b'test'], '*')
+        with test_support.check_warnings(("", UnicodeWarning), quiet=True):
+            self.assertEqual(filter(['test'], u'*'), ['test'])
+            self.assertEqual(filter([u'test'], '*'), [u'test'])
+            self.assertEqual(filter(['test\xff'], u'*'), ['test\xff'])
+            self.assertEqual(filter([u'test\xff'], '*'), [u'test\xff'])
+            self.assertEqual(filter(['test\xff'], u'*\xff'), ['test\xff'])
+            self.assertEqual(filter([u'test\xff'], '*\xff'), [u'test\xff'])
 
     def test_case(self):
         ignorecase = os.path.normcase('P') == os.path.normcase('p')
@@ -136,5 +157,9 @@ class FilterTestCase(unittest.TestCase):
                          ['usr/bin', 'usr\\lib'] if normsep else ['usr\\lib'])
 
 
+def test_main():
+    test_support.run_unittest(FnmatchTestCase, TranslateTestCase, FilterTestCase)
+
+
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

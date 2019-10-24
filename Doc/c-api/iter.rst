@@ -1,16 +1,23 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _iterator:
 
 Iterator Protocol
 =================
 
+.. versionadded:: 2.2
+
 There are two functions specifically for working with iterators.
+
 
 .. c:function:: int PyIter_Check(PyObject *o)
 
    Return true if the object *o* supports the iterator protocol.
 
+   This function can return a false positive in the case of old-style
+   classes because those classes always define a :c:member:`tp_iternext`
+   slot with logic that either invokes a :meth:`next` method or raises
+   a :exc:`TypeError`.
 
 .. c:function:: PyObject* PyIter_Next(PyObject *o)
 

@@ -2,17 +2,15 @@
 and friends."""
 
 import os
-import pprint
 import shutil
+import sys
 import tempfile
 from subprocess import *
 
 req_template = """
-    [ default ]
-    base_url               = http://testca.pythontest.net/testca
-
     [req]
     distinguished_name     = req_distinguished_name
+    x509_extensions        = req_x509_extensions
     prompt                 = no
 
     [req_distinguished_name]
@@ -21,25 +19,8 @@ req_template = """
     O                      = Python Software Foundation
     CN                     = {hostname}
 
-    [req_x509_extensions_simple]
+    [req_x509_extensions]
     subjectAltName         = @san
-
-    [req_x509_extensions_full]
-    subjectAltName         = @san
-    keyUsage               = critical,keyEncipherment,digitalSignature
-    extendedKeyUsage       = serverAuth,clientAuth
-    basicConstraints       = critical,CA:false
-    subjectKeyIdentifier   = hash
-    authorityKeyIdentifier = keyid:always,issuer:always
-    authorityInfoAccess    = @issuer_ocsp_info
-    crlDistributionPoints  = @crl_info
-
-    [ issuer_ocsp_info ]
-    caIssuers;URI.0        = $base_url/pycacert.cer
-    OCSP;URI.0             = $base_url/ocsp/
-
-    [ crl_info ]
-    URI.0                  = $base_url/revocation.crl
 
     [san]
     DNS.1 = {hostname}
@@ -76,6 +57,7 @@ req_template = """
     private_key = pycakey.pem
     serial    = $dir/serial
     RANDFILE  = $dir/.rand
+
     policy          = policy_match
 
     [ policy_match ]
@@ -120,8 +102,7 @@ def make_cert_key(hostname, sign=False, extra_san='',
         with open(req_file, 'w') as f:
             f.write(req)
         args = ['req', '-new', '-days', '3650', '-nodes',
-                '-newkey', key, '-keyout', key_file,
-                '-extensions', ext,
+                '-newkey', 'rsa:1024', '-keyout', key_file,
                 '-config', req_file]
         if sign:
             with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -134,15 +115,8 @@ def make_cert_key(hostname, sign=False, extra_san='',
         check_call(['openssl'] + args)
 
         if sign:
-            args = [
-                'ca',
-                '-config', req_file,
-                '-extensions', ext,
-                '-out', cert_file,
-                '-outdir', 'cadir',
-                '-policy', 'policy_anything',
-                '-batch', '-infiles', reqfile
-            ]
+            args = ['ca', '-config', req_file, '-out', cert_file, '-outdir', 'cadir',
+                    '-policy', 'policy_anything', '-batch', '-infiles', reqfile ]
             check_call(['openssl'] + args)
 
 
@@ -186,28 +160,16 @@ def make_ca():
             args = ['ca', '-config', t.name, '-gencrl', '-out', 'revocation.crl']
             check_call(['openssl'] + args)
 
-    # capath hashes depend on subject!
-    check_call([
-        'openssl', 'x509', '-in', 'pycacert.pem', '-out', 'capath/ceff1710.0'
-    ])
-    shutil.copy('capath/ceff1710.0', 'capath/b1930218.0')
-
-
-def print_cert(path):
-    import _ssl
-    pprint.pprint(_ssl._test_decode_cert(path))
-
-
 if __name__ == '__main__':
     os.chdir(here)
-    cert, key = make_cert_key('localhost', ext='req_x509_extensions_simple')
+    cert, key = make_cert_key('localhost')
     with open('ssl_cert.pem', 'w') as f:
         f.write(cert)
     with open('ssl_key.pem', 'w') as f:
         f.write(key)
     print("password protecting ssl_key.pem in ssl_key.passwd.pem")
-    check_call(['openssl','pkey','-in','ssl_key.pem','-out','ssl_key.passwd.pem','-aes256','-passout','pass:somepass'])
-    check_call(['openssl','pkey','-in','ssl_key.pem','-out','keycert.passwd.pem','-aes256','-passout','pass:somepass'])
+    check_call(['openssl','rsa','-in','ssl_key.pem','-out','ssl_key.passwd.pem','-des3','-passout','pass:somepass'])
+    check_call(['openssl','rsa','-in','ssl_key.pem','-out','keycert.passwd.pem','-des3','-passout','pass:somepass'])
 
     with open('keycert.pem', 'w') as f:
         f.write(key)
@@ -218,7 +180,7 @@ if __name__ == '__main__':
 
     # For certificate matching tests
     make_ca()
-    cert, key = make_cert_key('fakehostname', ext='req_x509_extensions_simple')
+    cert, key = make_cert_key('fakehostname')
     with open('keycert2.pem', 'w') as f:
         f.write(key)
         f.write(cert)
@@ -230,13 +192,6 @@ if __name__ == '__main__':
 
     cert, key = make_cert_key('fakehostname', True)
     with open('keycert4.pem', 'w') as f:
-        f.write(key)
-        f.write(cert)
-
-    cert, key = make_cert_key(
-        'localhost-ecc', True, key='param:secp384r1.pem'
-    )
-    with open('keycertecc.pem', 'w') as f:
         f.write(key)
         f.write(cert)
 
@@ -259,24 +214,6 @@ if __name__ == '__main__':
         f.write(key)
         f.write(cert)
 
-    extra_san = [
-        # könig (king)
-        'DNS.2 = xn--knig-5qa.idn.pythontest.net',
-        # königsgäßchen (king's alleyway)
-        'DNS.3 = xn--knigsgsschen-lcb0w.idna2003.pythontest.net',
-        'DNS.4 = xn--knigsgchen-b4a3dun.idna2008.pythontest.net',
-        # βόλοσ (marble)
-        'DNS.5 = xn--nxasmq6b.idna2003.pythontest.net',
-        'DNS.6 = xn--nxasmm1c.idna2008.pythontest.net',
-    ]
-
-    # IDN SANS, signed
-    cert, key = make_cert_key('idnsans', True, extra_san='\n'.join(extra_san))
-    with open('idnsans.pem', 'w') as f:
-        f.write(key)
-        f.write(cert)
-
     unmake_ca()
-    print("update Lib/test/test_ssl.py and Lib/test/test_asyncio/util.py")
-    print_cert('keycert.pem')
-    print_cert('keycert3.pem')
+    print("\n\nPlease change the values in test_ssl.py, test_parse_cert function related to notAfter,notBefore and serialNumber")
+    check_call(['openssl','x509','-in','keycert.pem','-dates','-serial','-noout'])

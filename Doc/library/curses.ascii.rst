@@ -1,13 +1,14 @@
+
 :mod:`curses.ascii` --- Utilities for ASCII characters
 ======================================================
 
 .. module:: curses.ascii
    :synopsis: Constants and set-membership functions for ASCII characters.
-
 .. moduleauthor:: Eric S. Raymond <esr@thyrsus.com>
 .. sectionauthor:: Eric S. Raymond <esr@thyrsus.com>
 
---------------
+
+.. versionadded:: 1.6
 
 The :mod:`curses.ascii` module supplies name constants for ASCII characters and
 functions to test membership in various ASCII character classes.  The constants
@@ -176,12 +177,14 @@ C library:
 
    Checks for a non-ASCII character (ordinal values 0x80 and above).
 
-These functions accept either integers or single-character strings; when the argument is a
+These functions accept either integers or strings; when the argument is a
 string, it is first converted using the built-in function :func:`ord`.
 
-Note that all these functions check ordinal bit values derived from the
+Note that all these functions check ordinal bit values derived from the  first
 character of the string you pass in; they do not actually know anything about
-the host machine's character encoding.
+the host machine's character encoding.  For functions  that know about the
+character encoding (and handle internationalization properly) see the
+:mod:`string` module.
 
 The following two functions take either a single-character string or integer
 byte value; they return a value of the same type.
@@ -206,10 +209,6 @@ byte value; they return a value of the same type.
 The following function takes either a single-character string or integer value;
 it returns a string.
 
-
-.. index::
-   single: ^ (caret); in curses module
-   single: ! (exclamation); in curses module
 
 .. function:: unctrl(c)
 

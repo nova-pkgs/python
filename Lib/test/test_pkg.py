@@ -5,6 +5,7 @@ import os
 import tempfile
 import textwrap
 import unittest
+from test import test_support
 
 
 # Helpers to create and destroy hierarchies.
@@ -22,8 +23,6 @@ def cleanout(root):
 def fixdir(lst):
     if "__builtins__" in lst:
         lst.remove("__builtins__")
-    if "__initializing__" in lst:
-        lst.remove("__initializing__")
     return lst
 
 
@@ -43,19 +42,15 @@ def fixdir(lst):
 # from package import * (defined in __init__)
 
 
-class TestPkg(unittest.TestCase):
+class Test(unittest.TestCase):
 
     def setUp(self):
         self.root = None
         self.pkgname = None
         self.syspath = list(sys.path)
-        self.modules_to_cleanup = set()  # Populated by mkhier().
 
     def tearDown(self):
         sys.path[:] = self.syspath
-        for modulename in self.modules_to_cleanup:
-            if modulename in sys.modules:
-                del sys.modules[modulename]
         if self.root: # Only clean if the test was actually run
             cleanout(self.root)
 
@@ -76,34 +71,34 @@ class TestPkg(unittest.TestCase):
             os.mkdir(root)
         for name, contents in descr:
             comps = name.split()
-            self.modules_to_cleanup.add('.'.join(comps))
             fullname = root
             for c in comps:
                 fullname = os.path.join(fullname, c)
             if contents is None:
                 os.mkdir(fullname)
             else:
-                with open(fullname, "w") as f:
-                    f.write(contents)
-                    if not contents.endswith('\n'):
-                        f.write('\n')
+                f = open(fullname, "w")
+                f.write(contents)
+                if contents and contents[-1] != '\n':
+                    f.write('\n')
+                f.close()
         self.root = root
         # package name is the name of the first item
         self.pkgname = descr[0][0]
 
     def test_1(self):
-        hier = [("t1", None), ("t1 __init__.py", "")]
+        hier = [("t1", None), ("t1 __init__"+os.extsep+"py", "")]
         self.mkhier(hier)
         import t1
 
     def test_2(self):
         hier = [
          ("t2", None),
-         ("t2 __init__.py", "'doc for t2'"),
+         ("t2 __init__"+os.extsep+"py", "'doc for t2'"),
          ("t2 sub", None),
-         ("t2 sub __init__.py", ""),
+         ("t2 sub __init__"+os.extsep+"py", ""),
          ("t2 sub subsub", None),
-         ("t2 sub subsub __init__.py", "spam = 1"),
+         ("t2 sub subsub __init__"+os.extsep+"py", "spam = 1"),
         ]
         self.mkhier(hier)
 
@@ -146,11 +141,11 @@ class TestPkg(unittest.TestCase):
     def test_3(self):
         hier = [
                 ("t3", None),
-                ("t3 __init__.py", ""),
+                ("t3 __init__"+os.extsep+"py", ""),
                 ("t3 sub", None),
-                ("t3 sub __init__.py", ""),
+                ("t3 sub __init__"+os.extsep+"py", ""),
                 ("t3 sub subsub", None),
-                ("t3 sub subsub __init__.py", "spam = 1"),
+                ("t3 sub subsub __init__"+os.extsep+"py", "spam = 1"),
                ]
         self.mkhier(hier)
 
@@ -163,14 +158,14 @@ class TestPkg(unittest.TestCase):
         hier = [
         ("t4.py", "raise RuntimeError('Shouldnt load t4.py')"),
         ("t4", None),
-        ("t4 __init__.py", ""),
+        ("t4 __init__"+os.extsep+"py", ""),
         ("t4 sub.py", "raise RuntimeError('Shouldnt load sub.py')"),
         ("t4 sub", None),
-        ("t4 sub __init__.py", ""),
-        ("t4 sub subsub.py",
+        ("t4 sub __init__"+os.extsep+"py", ""),
+        ("t4 sub subsub"+os.extsep+"py",
          "raise RuntimeError('Shouldnt load subsub.py')"),
         ("t4 sub subsub", None),
-        ("t4 sub subsub __init__.py", "spam = 1"),
+        ("t4 sub subsub __init__"+os.extsep+"py", "spam = 1"),
                ]
         self.mkhier(hier)
 
@@ -183,9 +178,9 @@ class TestPkg(unittest.TestCase):
     def test_5(self):
         hier = [
         ("t5", None),
-        ("t5 __init__.py", "import t5.foo"),
-        ("t5 string.py", "spam = 1"),
-        ("t5 foo.py",
+        ("t5 __init__"+os.extsep+"py", "import t5.foo"),
+        ("t5 string"+os.extsep+"py", "spam = 1"),
+        ("t5 foo"+os.extsep+"py",
          "from . import string; assert string.spam == 1"),
          ]
         self.mkhier(hier)
@@ -199,56 +194,54 @@ class TestPkg(unittest.TestCase):
 
         import t5
         self.assertEqual(fixdir(dir(t5)),
-                         ['__cached__', '__doc__', '__file__', '__loader__',
-                          '__name__', '__package__', '__path__', '__spec__',
-                          'foo', 'string', 't5'])
+                         ['__doc__', '__file__', '__name__',
+                          '__package__', '__path__', 'foo', 'string', 't5'])
         self.assertEqual(fixdir(dir(t5.foo)),
-                         ['__cached__', '__doc__', '__file__', '__loader__',
-                          '__name__', '__package__', '__spec__', 'string'])
+                         ['__doc__', '__file__', '__name__', '__package__',
+                          'string'])
         self.assertEqual(fixdir(dir(t5.string)),
-                         ['__cached__', '__doc__', '__file__', '__loader__',
-                          '__name__', '__package__', '__spec__', 'spam'])
+                         ['__doc__', '__file__', '__name__','__package__',
+                          'spam'])
 
     def test_6(self):
         hier = [
                 ("t6", None),
-                ("t6 __init__.py",
+                ("t6 __init__"+os.extsep+"py",
                  "__all__ = ['spam', 'ham', 'eggs']"),
-                ("t6 spam.py", ""),
-                ("t6 ham.py", ""),
-                ("t6 eggs.py", ""),
+                ("t6 spam"+os.extsep+"py", ""),
+                ("t6 ham"+os.extsep+"py", ""),
+                ("t6 eggs"+os.extsep+"py", ""),
                ]
         self.mkhier(hier)
 
         import t6
         self.assertEqual(fixdir(dir(t6)),
-                         ['__all__', '__cached__', '__doc__', '__file__',
-                          '__loader__', '__name__', '__package__', '__path__',
-                          '__spec__'])
+                         ['__all__', '__doc__', '__file__',
+                          '__name__', '__package__', '__path__'])
         s = """
             import t6
             from t6 import *
             self.assertEqual(fixdir(dir(t6)),
-                             ['__all__', '__cached__', '__doc__', '__file__',
-                              '__loader__', '__name__', '__package__',
-                              '__path__', '__spec__', 'eggs', 'ham', 'spam'])
+                             ['__all__', '__doc__', '__file__',
+                              '__name__', '__package__', '__path__',
+                              'eggs', 'ham', 'spam'])
             self.assertEqual(dir(), ['eggs', 'ham', 'self', 'spam', 't6'])
             """
         self.run_code(s)
 
     def test_7(self):
         hier = [
-                ("t7.py", ""),
                 ("t7", None),
-                ("t7 __init__.py", ""),
-                ("t7 sub.py",
+                ("t7"+os.extsep+"py", ""),
+                ("t7 __init__"+os.extsep+"py", ""),
+                ("t7 sub"+os.extsep+"py",
                  "raise RuntimeError('Shouldnt load sub.py')"),
                 ("t7 sub", None),
-                ("t7 sub __init__.py", ""),
-                ("t7 sub .py",
+                ("t7 sub __init__"+os.extsep+"py", ""),
+                ("t7 sub "+os.extsep+"py",
                  "raise RuntimeError('Shouldnt load subsub.py')"),
                 ("t7 sub subsub", None),
-                ("t7 sub subsub __init__.py",
+                ("t7 sub subsub __init__"+os.extsep+"py",
                  "spam = 1"),
                ]
         self.mkhier(hier)
@@ -257,20 +250,19 @@ class TestPkg(unittest.TestCase):
         t7, sub, subsub = None, None, None
         import t7 as tas
         self.assertEqual(fixdir(dir(tas)),
-                         ['__cached__', '__doc__', '__file__', '__loader__',
-                          '__name__', '__package__', '__path__', '__spec__'])
+                         ['__doc__', '__file__', '__name__',
+                          '__package__', '__path__'])
         self.assertFalse(t7)
         from t7 import sub as subpar
         self.assertEqual(fixdir(dir(subpar)),
-                         ['__cached__', '__doc__', '__file__', '__loader__',
-                          '__name__', '__package__', '__path__', '__spec__'])
+                         ['__doc__', '__file__', '__name__',
+                          '__package__', '__path__'])
         self.assertFalse(t7)
         self.assertFalse(sub)
         from t7.sub import subsub as subsubsub
         self.assertEqual(fixdir(dir(subsubsub)),
-                         ['__cached__', '__doc__', '__file__', '__loader__',
-                          '__name__', '__package__', '__path__', '__spec__',
-                          'spam'])
+                         ['__doc__', '__file__', '__name__',
+                         '__package__', '__path__', 'spam'])
         self.assertFalse(t7)
         self.assertFalse(sub)
         self.assertFalse(subsub)
@@ -292,5 +284,9 @@ class TestPkg(unittest.TestCase):
         import t8
         self.assertEqual(t8.__doc__, "doc for t8")
 
+def test_main():
+    test_support.run_unittest(__name__)
+
+
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

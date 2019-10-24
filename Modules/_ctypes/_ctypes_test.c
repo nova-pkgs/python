@@ -1,5 +1,13 @@
 #include <Python.h>
 
+/*
+  Backwards compatibility, no longer strictly required:
+  Python2.2 used LONG_LONG instead of PY_LONG_LONG
+*/
+#if defined(HAVE_LONG_LONG) && !defined(PY_LONG_LONG)
+#define PY_LONG_LONG LONG_LONG
+#endif
+
 #ifdef MS_WIN32
 #include <windows.h>
 #endif
@@ -52,87 +60,9 @@ _testfunc_cbk_large_struct(Test in, void (*func)(Test))
 EXPORT(void)
 _testfunc_large_struct_update_value(Test in)
 {
-    ((volatile Test *)&in)->first = 0x0badf00d;
-    ((volatile Test *)&in)->second = 0x0badf00d;
-    ((volatile Test *)&in)->third = 0x0badf00d;
-}
-
-typedef struct {
-    unsigned int first;
-    unsigned int second;
-} TestReg;
-
-
-EXPORT(TestReg) last_tfrsuv_arg = {0};
-
-
-EXPORT(void)
-_testfunc_reg_struct_update_value(TestReg in)
-{
-    last_tfrsuv_arg = in;
-    ((volatile TestReg *)&in)->first = 0x0badf00d;
-    ((volatile TestReg *)&in)->second = 0x0badf00d;
-}
-
-/*
- * See bpo-22273. Structs containing arrays should work on Linux 64-bit.
- */
-
-typedef struct {
-    unsigned char data[16];
-} Test2;
-
-EXPORT(int)
-_testfunc_array_in_struct1(Test2 in)
-{
-    int result = 0;
-
-    for (unsigned i = 0; i < 16; i++)
-        result += in.data[i];
-    /* As the structure is passed by value, changes to it shouldn't be
-     * reflected in the caller.
-     */
-    memset(in.data, 0, sizeof(in.data));
-    return result;
-}
-
-typedef struct {
-    double data[2];
-} Test3;
-
-typedef struct {
-    float data[2];
-    float more_data[2];
-} Test3B;
-
-EXPORT(double)
-_testfunc_array_in_struct2(Test3 in)
-{
-    double result = 0;
-
-    for (unsigned i = 0; i < 2; i++)
-        result += in.data[i];
-    /* As the structure is passed by value, changes to it shouldn't be
-     * reflected in the caller.
-     */
-    memset(in.data, 0, sizeof(in.data));
-    return result;
-}
-
-EXPORT(double)
-_testfunc_array_in_struct2a(Test3B in)
-{
-    double result = 0;
-
-    for (unsigned i = 0; i < 2; i++)
-        result += in.data[i];
-    for (unsigned i = 0; i < 2; i++)
-        result += in.more_data[i];
-    /* As the structure is passed by value, changes to it shouldn't be
-     * reflected in the caller.
-     */
-    memset(in.data, 0, sizeof(in.data));
-    return result;
+    in.first = 0x0badf00d;
+    in.second = 0x0badf00d;
+    in.third = 0x0badf00d;
 }
 
 EXPORT(void)testfunc_array(int values[4])
@@ -147,7 +77,7 @@ EXPORT(void)testfunc_array(int values[4])
 EXPORT(long double)testfunc_Ddd(double a, double b)
 {
     long double result = (long double)(a * b);
-    printf("testfunc_Ddd(%p, %p)\n", (void *)&a, (void *)&b);
+    printf("testfunc_Ddd(%p, %p)\n", &a, &b);
     printf("testfunc_Ddd(%g, %g)\n", a, b);
     return result;
 }
@@ -155,7 +85,7 @@ EXPORT(long double)testfunc_Ddd(double a, double b)
 EXPORT(long double)testfunc_DDD(long double a, long double b)
 {
     long double result = a * b;
-    printf("testfunc_DDD(%p, %p)\n", (void *)&a, (void *)&b);
+    printf("testfunc_DDD(%p, %p)\n", &a, &b);
     printf("testfunc_DDD(%Lg, %Lg)\n", a, b);
     return result;
 }
@@ -163,7 +93,7 @@ EXPORT(long double)testfunc_DDD(long double a, long double b)
 EXPORT(int)testfunc_iii(int a, int b)
 {
     int result = a * b;
-    printf("testfunc_iii(%p, %p)\n", (void *)&a, (void *)&b);
+    printf("testfunc_iii(%p, %p)\n", &a, &b);
     return result;
 }
 
@@ -324,15 +254,16 @@ EXPORT(int) _testfunc_callback_with_pointer(int (*func)(int *))
     return (*func)(table);
 }
 
-EXPORT(long long) _testfunc_q_bhilfdq(signed char b, short h, int i, long l, float f,
-                                      double d, long long q)
+#ifdef HAVE_LONG_LONG
+EXPORT(PY_LONG_LONG) _testfunc_q_bhilfdq(signed char b, short h, int i, long l, float f,
+                                     double d, PY_LONG_LONG q)
 {
-    return (long long)(b + h + i + l + f + d + q);
+    return (PY_LONG_LONG)(b + h + i + l + f + d + q);
 }
 
-EXPORT(long long) _testfunc_q_bhilfd(signed char b, short h, int i, long l, float f, double d)
+EXPORT(PY_LONG_LONG) _testfunc_q_bhilfd(signed char b, short h, int i, long l, float f, double d)
 {
-    return (long long)(b + h + i + l + f + d);
+    return (PY_LONG_LONG)(b + h + i + l + f + d);
 }
 
 EXPORT(int) _testfunc_callback_i_if(int value, int (*func)(int))
@@ -345,10 +276,10 @@ EXPORT(int) _testfunc_callback_i_if(int value, int (*func)(int))
     return sum;
 }
 
-EXPORT(long long) _testfunc_callback_q_qf(long long value,
-                                          long long (*func)(long long))
+EXPORT(PY_LONG_LONG) _testfunc_callback_q_qf(PY_LONG_LONG value,
+                                             PY_LONG_LONG (*func)(PY_LONG_LONG))
 {
-    long long sum = 0;
+    PY_LONG_LONG sum = 0;
 
     while (value != 0) {
         sum += func(value);
@@ -356,6 +287,8 @@ EXPORT(long long) _testfunc_callback_q_qf(long long value,
     }
     return sum;
 }
+
+#endif
 
 typedef struct {
     char *name;
@@ -421,7 +354,7 @@ static void _xxx_init(void *(*Xalloc)(int), void (*Xfree)(void *))
 {
     void *ptr;
 
-    printf("_xxx_init got %p %p\n", (void *)Xalloc, (void *)Xfree);
+    printf("_xxx_init got %p %p\n", Xalloc, Xfree);
     printf("calling\n");
     ptr = Xalloc(32);
     Xfree(ptr);
@@ -454,7 +387,8 @@ PyObject *py_func_si(PyObject *self, PyObject *args)
     int i;
     if (!PyArg_ParseTuple(args, "si", &name, &i))
         return NULL;
-    Py_RETURN_NONE;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 EXPORT(void) _py_func_si(char *s, int i)
@@ -463,29 +397,23 @@ EXPORT(void) _py_func_si(char *s, int i)
 
 PyObject *py_func(PyObject *self, PyObject *args)
 {
-    Py_RETURN_NONE;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 EXPORT(void) _py_func(void)
 {
 }
 
-EXPORT(long long) last_tf_arg_s = 0;
-EXPORT(unsigned long long) last_tf_arg_u = 0;
+EXPORT(PY_LONG_LONG) last_tf_arg_s;
+EXPORT(unsigned PY_LONG_LONG) last_tf_arg_u;
 
 struct BITS {
-    signed int A: 1, B:2, C:3, D:4, E: 5, F: 6, G: 7, H: 8, I: 9;
-/*
- * The test case needs/uses "signed short" bitfields, but the
- * IBM XLC compiler does not support this
- */
-#ifndef __xlc__
-#define SIGNED_SHORT_BITFIELDS
-     short M: 1, N: 2, O: 3, P: 4, Q: 5, R: 6, S: 7;
-#endif
+    int A: 1, B:2, C:3, D:4, E: 5, F: 6, G: 7, H: 8, I: 9;
+    short M: 1, N: 2, O: 3, P: 4, Q: 5, R: 6, S: 7;
 };
 
-EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
+DL_EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
 {
     switch (name) {
     case 'A': bits->A = value; break;
@@ -497,7 +425,7 @@ EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
     case 'G': bits->G = value; break;
     case 'H': bits->H = value; break;
     case 'I': bits->I = value; break;
-#ifdef SIGNED_SHORT_BITFIELDS
+
     case 'M': bits->M = value; break;
     case 'N': bits->N = value; break;
     case 'O': bits->O = value; break;
@@ -505,11 +433,10 @@ EXPORT(void) set_bitfields(struct BITS *bits, char name, int value)
     case 'Q': bits->Q = value; break;
     case 'R': bits->R = value; break;
     case 'S': bits->S = value; break;
-#endif
     }
 }
 
-EXPORT(int) unpack_bitfields(struct BITS *bits, char name)
+DL_EXPORT(int) unpack_bitfields(struct BITS *bits, char name)
 {
     switch (name) {
     case 'A': return bits->A;
@@ -522,7 +449,6 @@ EXPORT(int) unpack_bitfields(struct BITS *bits, char name)
     case 'H': return bits->H;
     case 'I': return bits->I;
 
-#ifdef SIGNED_SHORT_BITFIELDS
     case 'M': return bits->M;
     case 'N': return bits->N;
     case 'O': return bits->O;
@@ -530,9 +456,8 @@ EXPORT(int) unpack_bitfields(struct BITS *bits, char name)
     case 'Q': return bits->Q;
     case 'R': return bits->R;
     case 'S': return bits->S;
-#endif
     }
-    return 999;
+    return 0;
 }
 
 static PyMethodDef module_methods[] = {
@@ -544,8 +469,8 @@ static PyMethodDef module_methods[] = {
     { NULL, NULL, 0, NULL},
 };
 
-#define S last_tf_arg_s = (long long)c
-#define U last_tf_arg_u = (unsigned long long)c
+#define S last_tf_arg_s = (PY_LONG_LONG)c
+#define U last_tf_arg_u = (unsigned PY_LONG_LONG)c
 
 EXPORT(signed char) tf_b(signed char c) { S; return c/3; }
 EXPORT(unsigned char) tf_B(unsigned char c) { U; return c/3; }
@@ -555,8 +480,8 @@ EXPORT(int) tf_i(int c) { S; return c/3; }
 EXPORT(unsigned int) tf_I(unsigned int c) { U; return c/3; }
 EXPORT(long) tf_l(long c) { S; return c/3; }
 EXPORT(unsigned long) tf_L(unsigned long c) { U; return c/3; }
-EXPORT(long long) tf_q(long long c) { S; return c/3; }
-EXPORT(unsigned long long) tf_Q(unsigned long long c) { U; return c/3; }
+EXPORT(PY_LONG_LONG) tf_q(PY_LONG_LONG c) { S; return c/3; }
+EXPORT(unsigned PY_LONG_LONG) tf_Q(unsigned PY_LONG_LONG c) { U; return c/3; }
 EXPORT(float) tf_f(float c) { S; return c/3; }
 EXPORT(double) tf_d(double c) { S; return c/3; }
 EXPORT(long double) tf_D(long double c) { S; return c/3; }
@@ -570,8 +495,8 @@ EXPORT(int) __stdcall s_tf_i(int c) { S; return c/3; }
 EXPORT(unsigned int) __stdcall s_tf_I(unsigned int c) { U; return c/3; }
 EXPORT(long) __stdcall s_tf_l(long c) { S; return c/3; }
 EXPORT(unsigned long) __stdcall s_tf_L(unsigned long c) { U; return c/3; }
-EXPORT(long long) __stdcall s_tf_q(long long c) { S; return c/3; }
-EXPORT(unsigned long long) __stdcall s_tf_Q(unsigned long long c) { U; return c/3; }
+EXPORT(PY_LONG_LONG) __stdcall s_tf_q(PY_LONG_LONG c) { S; return c/3; }
+EXPORT(unsigned PY_LONG_LONG) __stdcall s_tf_Q(unsigned PY_LONG_LONG c) { U; return c/3; }
 EXPORT(float) __stdcall s_tf_f(float c) { S; return c/3; }
 EXPORT(double) __stdcall s_tf_d(double c) { S; return c/3; }
 EXPORT(long double) __stdcall s_tf_D(long double c) { S; return c/3; }
@@ -586,8 +511,8 @@ EXPORT(int) tf_bi(signed char x, int c) { S; return c/3; }
 EXPORT(unsigned int) tf_bI(signed char x, unsigned int c) { U; return c/3; }
 EXPORT(long) tf_bl(signed char x, long c) { S; return c/3; }
 EXPORT(unsigned long) tf_bL(signed char x, unsigned long c) { U; return c/3; }
-EXPORT(long long) tf_bq(signed char x, long long c) { S; return c/3; }
-EXPORT(unsigned long long) tf_bQ(signed char x, unsigned long long c) { U; return c/3; }
+EXPORT(PY_LONG_LONG) tf_bq(signed char x, PY_LONG_LONG c) { S; return c/3; }
+EXPORT(unsigned PY_LONG_LONG) tf_bQ(signed char x, unsigned PY_LONG_LONG c) { U; return c/3; }
 EXPORT(float) tf_bf(signed char x, float c) { S; return c/3; }
 EXPORT(double) tf_bd(signed char x, double c) { S; return c/3; }
 EXPORT(long double) tf_bD(signed char x, long double c) { S; return c/3; }
@@ -602,8 +527,8 @@ EXPORT(int) __stdcall s_tf_bi(signed char x, int c) { S; return c/3; }
 EXPORT(unsigned int) __stdcall s_tf_bI(signed char x, unsigned int c) { U; return c/3; }
 EXPORT(long) __stdcall s_tf_bl(signed char x, long c) { S; return c/3; }
 EXPORT(unsigned long) __stdcall s_tf_bL(signed char x, unsigned long c) { U; return c/3; }
-EXPORT(long long) __stdcall s_tf_bq(signed char x, long long c) { S; return c/3; }
-EXPORT(unsigned long long) __stdcall s_tf_bQ(signed char x, unsigned long long c) { U; return c/3; }
+EXPORT(PY_LONG_LONG) __stdcall s_tf_bq(signed char x, PY_LONG_LONG c) { S; return c/3; }
+EXPORT(unsigned PY_LONG_LONG) __stdcall s_tf_bQ(signed char x, unsigned PY_LONG_LONG c) { U; return c/3; }
 EXPORT(float) __stdcall s_tf_bf(signed char x, float c) { S; return c/3; }
 EXPORT(double) __stdcall s_tf_bd(signed char x, double c) { S; return c/3; }
 EXPORT(long double) __stdcall s_tf_bD(signed char x, long double c) { S; return c/3; }
@@ -947,21 +872,8 @@ EXPORT (HRESULT) KeepObject(IUnknown *punk)
 
 #endif
 
-
-static struct PyModuleDef _ctypes_testmodule = {
-    PyModuleDef_HEAD_INIT,
-    "_ctypes_test",
-    NULL,
-    -1,
-    module_methods,
-    NULL,
-    NULL,
-    NULL,
-    NULL
-};
-
-PyMODINIT_FUNC
-PyInit__ctypes_test(void)
+DL_EXPORT(void)
+init_ctypes_test(void)
 {
-    return PyModule_Create(&_ctypes_testmodule);
+    Py_InitModule("_ctypes_test", module_methods);
 }

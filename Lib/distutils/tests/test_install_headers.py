@@ -1,10 +1,12 @@
 """Tests for distutils.command.install_headers."""
+import sys
 import os
 import unittest
+import getpass
 
 from distutils.command.install_headers import install_headers
 from distutils.tests import support
-from test.support import run_unittest
+from test.test_support import run_unittest
 
 class InstallHeadersTestCase(support.TempdirManager,
                              support.LoggingSilencer,

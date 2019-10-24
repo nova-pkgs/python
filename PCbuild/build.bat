@@ -17,37 +17,34 @@ echo.response file.
 echo.
 echo.Available flags:
 echo.  -h  Display this help message
-echo.  -V  Display version information for the current build
 echo.  -r  Target Rebuild instead of Build
 echo.  -d  Set the configuration to Debug
-echo.  -E  Don't fetch or build external libraries.  Extension modules that
-echo.      depend on external libraries will not attempt to build if this flag
-echo.      is present; -e is also accepted to explicitly enable fetching and
-echo.      building externals.
-echo.  -m  Enable parallel build (enabled by default)
-echo.  -M  Disable parallel build
+echo.  -e  Build external libraries fetched by get_externals.bat
+echo.      Extension modules that depend on external libraries will not attempt
+echo.      to build if this flag is not present
+echo.  -m  Enable parallel build
+echo.  -M  Disable parallel build (disabled by default)
 echo.  -v  Increased output messages
 echo.  -k  Attempt to kill any running Pythons before building (usually done
 echo.      automatically by the pythoncore project)
 echo.  --pgo          Build with Profile-Guided Optimization.  This flag
 echo.                 overrides -c and -d
-echo.  --test-marker  Enable the test marker within the build.
 echo.
 echo.Available flags to avoid building certain modules.
 echo.These flags have no effect if '-e' is not given:
-echo.  --no-ctypes   Do not attempt to build _ctypes
 echo.  --no-ssl      Do not attempt to build _ssl
 echo.  --no-tkinter  Do not attempt to build Tkinter
+echo.  --no-bsddb    Do not attempt to build _bsddb
 echo.
 echo.Available arguments:
 echo.  -c Release ^| Debug ^| PGInstrument ^| PGUpdate
 echo.     Set the configuration (default: Release)
-echo.  -p x64 ^| Win32 ^| ARM ^| ARM64
+echo.  -p x64 ^| Win32
 echo.     Set the platform (default: Win32)
 echo.  -t Build ^| Rebuild ^| Clean ^| CleanAll
 echo.     Set the target manually
 echo.  --pgo-job  The job to use for PGO training; implies --pgo
-echo.             (default: "-m test --pgo")
+echo.             (default: "-m test.regrtest --pgo")
 exit /b 127
 
 :Run
@@ -56,11 +53,11 @@ set platf=Win32
 set conf=Release
 set target=Build
 set dir=%~dp0
-set parallel=/m
+set parallel=
 set verbose=/nologo /v:m
 set kill=
 set do_pgo=
-set pgo_job=-m test --pgo
+set pgo_job=-m test.regrtest --pgo
 
 :CheckOpts
 if "%~1"=="-h" goto Usage
@@ -75,21 +72,18 @@ if "%~1"=="-v" (set verbose=/v:n) & shift & goto CheckOpts
 if "%~1"=="-k" (set kill=true) & shift & goto CheckOpts
 if "%~1"=="--pgo" (set do_pgo=true) & shift & goto CheckOpts
 if "%~1"=="--pgo-job" (set do_pgo=true) & (set pgo_job=%~2) & shift & shift & goto CheckOpts
-if "%~1"=="--test-marker" (set UseTestMarker=true) & shift & goto CheckOpts
-if "%~1"=="-V" shift & goto :Version
 rem These use the actual property names used by MSBuild.  We could just let
 rem them in through the environment, but we specify them on the command line
 rem anyway for visibility so set defaults after this
 if "%~1"=="-e" (set IncludeExternals=true) & shift & goto CheckOpts
-if "%~1"=="-E" (set IncludeExternals=false) & shift & goto CheckOpts
-if "%~1"=="--no-ctypes" (set IncludeCTypes=false) & shift & goto CheckOpts
 if "%~1"=="--no-ssl" (set IncludeSSL=false) & shift & goto CheckOpts
 if "%~1"=="--no-tkinter" (set IncludeTkinter=false) & shift & goto CheckOpts
+if "%~1"=="--no-bsddb" (set IncludeBsddb=false) & shift & goto CheckOpts
 
-if "%IncludeExternals%"=="" set IncludeExternals=true
-if "%IncludeCTypes%"=="" set IncludeCTypes=true
+if "%IncludeExternals%"=="" set IncludeExternals=false
 if "%IncludeSSL%"=="" set IncludeSSL=true
 if "%IncludeTkinter%"=="" set IncludeTkinter=true
+if "%IncludeBsddb%"=="" set IncludeBsddb=true
 
 if "%IncludeExternals%"=="true" call "%dir%get_externals.bat"
 
@@ -102,25 +96,18 @@ if "%do_pgo%" EQU "true" if "%platf%" EQU "x64" (
     )
 )
 
-if not exist "%GIT%" where git > "%TEMP%\git.loc" 2> nul && set /P GIT= < "%TEMP%\git.loc" & del "%TEMP%\git.loc"
+if "%GIT%" EQU "" set GIT=git
 if exist "%GIT%" set GITProperty=/p:GIT="%GIT%"
-if not exist "%GIT%" echo Cannot find Git on PATH & set GITProperty=
 
 rem Setup the environment
 call "%dir%find_msbuild.bat" %MSBUILD%
-if ERRORLEVEL 1 (echo Cannot locate MSBuild.exe on PATH or as MSBUILD variable & exit /b 2)
+if ERRORLEVEL 1 (call "%dir%env.bat" && set MSBUILD=msbuild)
 
 if "%kill%"=="true" call :Kill
-if ERRORLEVEL 1 exit /B 3
 
 if "%do_pgo%"=="true" (
     set conf=PGInstrument
     call :Build %1 %2 %3 %4 %5 %6 %7 %8 %9
-)
-rem %VARS% are evaluated eagerly, which would lose the ERRORLEVEL
-rem value if we didn't split it out here.
-if "%do_pgo%"=="true" if ERRORLEVEL 1 exit /B %ERRORLEVEL%
-if "%do_pgo%"=="true" (
     del /s "%dir%\*.pgc"
     del /s "%dir%\..\Lib\*.pyc"
     echo on
@@ -130,7 +117,7 @@ if "%do_pgo%"=="true" (
     set conf=PGUpdate
     set target=Build
 )
-goto :Build
+goto Build
 
 :Kill
 echo on
@@ -139,7 +126,7 @@ echo on
  /p:KillPython=true
 
 @echo off
-exit /B %ERRORLEVEL%
+goto :eof
 
 :Build
 rem Call on MSBuild to do the work, echo the command.
@@ -149,17 +136,9 @@ echo on
 %MSBUILD% "%dir%pcbuild.proj" /t:%target% %parallel% %verbose%^
  /p:Configuration=%conf% /p:Platform=%platf%^
  /p:IncludeExternals=%IncludeExternals%^
- /p:IncludeCTypes=%IncludeCTypes%^
  /p:IncludeSSL=%IncludeSSL% /p:IncludeTkinter=%IncludeTkinter%^
- /p:UseTestMarker=%UseTestMarker% %GITProperty%^
+ /p:IncludeBsddb=%IncludeBsddb% %GITProperty%^
  %1 %2 %3 %4 %5 %6 %7 %8 %9
 
 @echo off
-exit /b %ERRORLEVEL%
-
-:Version
-rem Display the current build version information
-call "%dir%find_msbuild.bat" %MSBUILD%
-if ERRORLEVEL 1 (echo Cannot locate MSBuild.exe on PATH or as MSBUILD variable & exit /b 2)
-%MSBUILD% "%dir%pythoncore.vcxproj" /t:ShowVersionInfo /v:m /nologo %1 %2 %3 %4 %5 %6 %7 %8 %9
-if ERRORLEVEL 1 exit /b 3
+goto :eof

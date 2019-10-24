@@ -3,6 +3,7 @@
 #   Codec mapping tests for ROC encodings
 #
 
+from test import test_support
 from test import multibytecodec_support
 import unittest
 
@@ -16,12 +17,12 @@ class TestCP950Map(multibytecodec_support.TestBase_Mapping,
     encoding = 'cp950'
     mapfileurl = 'http://www.pythontest.net/unicode/CP950.TXT'
     pass_enctest = [
-        (b'\xa2\xcc', '\u5341'),
-        (b'\xa2\xce', '\u5345'),
+        ('\xa2\xcc', u'\u5341'),
+        ('\xa2\xce', u'\u5345'),
     ]
-    codectests = (
-        (b"\xFFxy", "replace",  "\ufffdxy"),
-    )
+
+def test_main():
+    test_support.run_unittest(__name__)
 
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

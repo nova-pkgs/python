@@ -2,7 +2,7 @@
 
 #include "Python.h"
 
-static const char cprt[] =
+static char cprt[] = 
 "\
 Copyright (c) 2001-2019 Python Software Foundation.\n\
 All Rights Reserved.\n\
@@ -19,5 +19,5 @@ All Rights Reserved.";
 const char *
 Py_GetCopyright(void)
 {
-    return cprt;
+	return cprt;
 }

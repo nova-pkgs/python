@@ -1,14 +1,20 @@
-:mod:`socketserver` --- A framework for network servers
+:mod:`SocketServer` --- A framework for network servers
 =======================================================
 
-.. module:: socketserver
+.. module:: SocketServer
    :synopsis: A framework for network servers.
 
-**Source code:** :source:`Lib/socketserver.py`
+.. note::
+
+   The :mod:`SocketServer` module has been renamed to :mod:`socketserver` in
+   Python 3.  The :term:`2to3` tool will automatically adapt imports when
+   converting your sources to Python 3.
+
+**Source code:** :source:`Lib/SocketServer.py`
 
 --------------
 
-The :mod:`socketserver` module simplifies the task of writing network servers.
+The :mod:`SocketServer` module simplifies the task of writing network servers.
 
 There are four basic concrete server classes:
 
@@ -52,21 +58,19 @@ handler class by subclassing the :class:`BaseRequestHandler` class and
 overriding its :meth:`~BaseRequestHandler.handle` method;
 this method will process incoming
 requests.  Second, you must instantiate one of the server classes, passing it
-the server's address and the request handler class. It is recommended to use
-the server in a :keyword:`with` statement. Then call the
+the server's address and the request handler class.  Then call the
 :meth:`~BaseServer.handle_request` or
 :meth:`~BaseServer.serve_forever` method of the server object to
 process one or many requests.  Finally, call :meth:`~BaseServer.server_close`
-to close the socket (unless you used a :keyword:`!with` statement).
+to close the socket.
 
 When inheriting from :class:`ThreadingMixIn` for threaded connection behavior,
 you should explicitly declare how you want your threads to behave on an abrupt
-shutdown.  The :class:`ThreadingMixIn` class defines an attribute
+shutdown. The :class:`ThreadingMixIn` class defines an attribute
 *daemon_threads*, which indicates whether or not the server should wait for
-thread termination.  You should set the flag explicitly if you would like
-threads to behave autonomously; the default is :const:`False`, meaning that
-Python will not exit until all threads created by :class:`ThreadingMixIn` have
-exited.
+thread termination. You should set the flag explicitly if you would like threads
+to behave autonomously; the default is :const:`False`, meaning that Python will
+not exit until all threads created by :class:`ThreadingMixIn` have exited.
 
 Server classes have the same external methods and attributes, no matter what
 network protocol they use.
@@ -115,25 +119,6 @@ server classes.
    :class:`ForkingMixIn` and the Forking classes mentioned below are
    only available on POSIX platforms that support :func:`~os.fork`.
 
-   :meth:`socketserver.ForkingMixIn.server_close` waits until all child
-   processes complete, except if
-   :attr:`socketserver.ForkingMixIn.block_on_close` attribute is false.
-
-   :meth:`socketserver.ThreadingMixIn.server_close` waits until all non-daemon
-   threads complete, except if
-   :attr:`socketserver.ThreadingMixIn.block_on_close` attribute is false. Use
-   daemonic threads by setting
-   :data:`ThreadingMixIn.daemon_threads` to ``True`` to not wait until threads
-   complete.
-
-   .. versionchanged:: 3.7
-
-      :meth:`socketserver.ForkingMixIn.server_close` and
-      :meth:`socketserver.ThreadingMixIn.server_close` now waits until all
-      child processes and non-daemonic threads complete.
-      Add a new :attr:`socketserver.ForkingMixIn.block_on_close` class
-      attribute to opt-in for the pre-3.7 behaviour.
-
 
 .. class:: ForkingTCPServer
            ForkingUDPServer
@@ -172,10 +157,10 @@ the request handler class :meth:`~BaseRequestHandler.handle` method.
 Another approach to handling multiple simultaneous requests in an environment
 that supports neither threads nor :func:`~os.fork` (or where these are too
 expensive or inappropriate for the service) is to maintain an explicit table of
-partially finished requests and to use :mod:`selectors` to decide which
+partially finished requests and to use :func:`~select.select` to decide which
 request to work on next (or whether to handle a new incoming request).  This is
 particularly important for stream services where each client can potentially be
-connected for a long time (if threads or subprocesses cannot be used).  See
+connected for a long time (if threads or subprocesses cannot be used). See
 :mod:`asyncore` for another way to manage this.
 
 .. XXX should data and methods be intermingled, or separate?
@@ -196,7 +181,7 @@ Server Objects
    .. method:: fileno()
 
       Return an integer file descriptor for the socket on which the server is
-      listening.  This function is most commonly passed to :mod:`selectors`, to
+      listening.  This function is most commonly passed to :func:`select.select`, to
       allow monitoring multiple servers in the same process.
 
 
@@ -216,32 +201,22 @@ Server Objects
 
       Handle requests until an explicit :meth:`shutdown` request.  Poll for
       shutdown every *poll_interval* seconds.
-      Ignores the :attr:`timeout` attribute.  It
-      also calls :meth:`service_actions`, which may be used by a subclass or mixin
-      to provide actions specific to a given service.  For example, the
-      :class:`ForkingMixIn` class uses :meth:`service_actions` to clean up zombie
-      child processes.
+      Ignores the :attr:`timeout` attribute.
+      If you need to do periodic tasks, do them in another thread.
 
-      .. versionchanged:: 3.3
-         Added ``service_actions`` call to the ``serve_forever`` method.
-
-
-   .. method:: service_actions()
-
-      This is called in the :meth:`serve_forever` loop. This method can be
-      overridden by subclasses or mixin classes to perform actions specific to
-      a given service, such as cleanup actions.
-
-      .. versionadded:: 3.3
 
    .. method:: shutdown()
 
       Tell the :meth:`serve_forever` loop to stop and wait until it does.
 
+      .. versionadded:: 2.6
+
 
    .. method:: server_close()
 
       Clean up the server. May be overridden.
+
+      .. versionadded:: 2.6
 
 
    .. attribute:: address_family
@@ -276,7 +251,7 @@ Server Objects
 
    .. attribute:: allow_reuse_address
 
-      Whether the server will allow the reuse of an address.  This defaults to
+      Whether the server will allow the reuse of an address. This defaults to
       :const:`False`, and can be set in subclasses to change the policy.
 
 
@@ -307,7 +282,7 @@ Server Objects
    users of the server object.
 
    .. XXX should the default implementations of these be documented, or should
-      it be assumed that the user will look at socketserver.py?
+      it be assumed that the user will look at SocketServer.py?
 
    .. method:: finish_request(request, client_address)
 
@@ -327,11 +302,7 @@ Server Objects
       This function is called if the :meth:`~BaseRequestHandler.handle`
       method of a :attr:`RequestHandlerClass` instance raises
       an exception.  The default action is to print the traceback to
-      standard error and continue handling further requests.
-
-      .. versionchanged:: 3.6
-         Now only called for exceptions derived from the :exc:`Exception`
-         class.
+      standard output and continue handling further requests.
 
 
    .. method:: handle_timeout()
@@ -359,7 +330,7 @@ Server Objects
 
       Called by the server's constructor to activate the server.  The default behavior
       for a TCP server just invokes :meth:`~socket.socket.listen`
-      on the server's socket.  May be overridden.
+      on the server's socket. May be overridden.
 
 
    .. method:: server_bind()
@@ -370,15 +341,10 @@ Server Objects
 
    .. method:: verify_request(request, client_address)
 
-      Must return a Boolean value; if the value is :const:`True`, the request will
-      be processed, and if it's :const:`False`, the request will be denied.  This
-      function can be overridden to implement access controls for a server. The
-      default implementation always returns :const:`True`.
-
-
-   .. versionchanged:: 3.6
-      Support for the :term:`context manager` protocol was added.  Exiting the
-      context manager is equivalent to calling :meth:`server_close`.
+      Must return a Boolean value; if the value is :const:`True`, the request will be
+      processed, and if it's :const:`False`, the request will be denied. This function
+      can be overridden to implement access controls for a server. The default
+      implementation always returns :const:`True`.
 
 
 Request Handler Objects
@@ -429,27 +395,18 @@ Request Handler Objects
    read or written, respectively, to get the request data or return data
    to the client.
 
-   The :attr:`rfile` attributes of both classes support the
-   :class:`io.BufferedIOBase` readable interface, and
-   :attr:`DatagramRequestHandler.wfile` supports the
-   :class:`io.BufferedIOBase` writable interface.
-
-   .. versionchanged:: 3.6
-      :attr:`StreamRequestHandler.wfile` also supports the
-      :class:`io.BufferedIOBase` writable interface.
-
 
 Examples
 --------
 
-:class:`socketserver.TCPServer` Example
+:class:`SocketServer.TCPServer` Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is the server side::
 
-   import socketserver
+   import SocketServer
 
-   class MyTCPHandler(socketserver.BaseRequestHandler):
+   class MyTCPHandler(SocketServer.BaseRequestHandler):
        """
        The request handler class for our server.
 
@@ -461,8 +418,8 @@ This is the server side::
        def handle(self):
            # self.request is the TCP socket connected to the client
            self.data = self.request.recv(1024).strip()
-           print("{} wrote:".format(self.client_address[0]))
-           print(self.data)
+           print "{} wrote:".format(self.client_address[0])
+           print self.data
            # just send back the same data, but upper-cased
            self.request.sendall(self.data.upper())
 
@@ -470,22 +427,23 @@ This is the server side::
        HOST, PORT = "localhost", 9999
 
        # Create the server, binding to localhost on port 9999
-       with socketserver.TCPServer((HOST, PORT), MyTCPHandler) as server:
-           # Activate the server; this will keep running until you
-           # interrupt the program with Ctrl-C
-           server.serve_forever()
+       server = SocketServer.TCPServer((HOST, PORT), MyTCPHandler)
+
+       # Activate the server; this will keep running until you
+       # interrupt the program with Ctrl-C
+       server.serve_forever()
 
 An alternative request handler class that makes use of streams (file-like
 objects that simplify communication by providing the standard file interface)::
 
-   class MyTCPHandler(socketserver.StreamRequestHandler):
+   class MyTCPHandler(SocketServer.StreamRequestHandler):
 
        def handle(self):
            # self.rfile is a file-like object created by the handler;
            # we can now use e.g. readline() instead of raw recv() calls
            self.data = self.rfile.readline().strip()
-           print("{} wrote:".format(self.client_address[0]))
-           print(self.data)
+           print "{} wrote:".format(self.client_address[0])
+           print self.data
            # Likewise, self.wfile is a file-like object used to write back
            # to the client
            self.wfile.write(self.data.upper())
@@ -505,16 +463,20 @@ This is the client side::
    data = " ".join(sys.argv[1:])
 
    # Create a socket (SOCK_STREAM means a TCP socket)
-   with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+   try:
        # Connect to server and send data
        sock.connect((HOST, PORT))
-       sock.sendall(bytes(data + "\n", "utf-8"))
+       sock.sendall(data + "\n")
 
        # Receive data from the server and shut down
-       received = str(sock.recv(1024), "utf-8")
+       received = sock.recv(1024)
+   finally:
+       sock.close()
 
-   print("Sent:     {}".format(data))
-   print("Received: {}".format(received))
+   print "Sent:     {}".format(data)
+   print "Received: {}".format(received)
 
 
 The output of the example should look something like this:
@@ -525,9 +487,9 @@ Server:
 
    $ python TCPServer.py
    127.0.0.1 wrote:
-   b'hello world with TCP'
+   hello world with TCP
    127.0.0.1 wrote:
-   b'python is nice'
+   python is nice
 
 Client:
 
@@ -541,14 +503,14 @@ Client:
    Received: PYTHON IS NICE
 
 
-:class:`socketserver.UDPServer` Example
+:class:`SocketServer.UDPServer` Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is the server side::
 
-   import socketserver
+   import SocketServer
 
-   class MyUDPHandler(socketserver.BaseRequestHandler):
+   class MyUDPHandler(SocketServer.BaseRequestHandler):
        """
        This class works similar to the TCP handler class, except that
        self.request consists of a pair of data and client socket, and since
@@ -559,14 +521,14 @@ This is the server side::
        def handle(self):
            data = self.request[0].strip()
            socket = self.request[1]
-           print("{} wrote:".format(self.client_address[0]))
-           print(data)
+           print "{} wrote:".format(self.client_address[0])
+           print data
            socket.sendto(data.upper(), self.client_address)
 
    if __name__ == "__main__":
        HOST, PORT = "localhost", 9999
-       with socketserver.UDPServer((HOST, PORT), MyUDPHandler) as server:
-           server.serve_forever()
+       server = SocketServer.UDPServer((HOST, PORT), MyUDPHandler)
+       server.serve_forever()
 
 This is the client side::
 
@@ -581,11 +543,11 @@ This is the client side::
 
    # As you can see, there is no connect() call; UDP has no connections.
    # Instead, data is directly sent to the recipient via sendto().
-   sock.sendto(bytes(data + "\n", "utf-8"), (HOST, PORT))
-   received = str(sock.recv(1024), "utf-8")
+   sock.sendto(data + "\n", (HOST, PORT))
+   received = sock.recv(1024)
 
-   print("Sent:     {}".format(data))
-   print("Received: {}".format(received))
+   print "Sent:     {}".format(data)
+   print "Received: {}".format(received)
 
 The output of the example should look exactly like for the TCP server example.
 
@@ -600,47 +562,50 @@ An example for the :class:`ThreadingMixIn` class::
 
    import socket
    import threading
-   import socketserver
+   import SocketServer
 
-   class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+   class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
        def handle(self):
-           data = str(self.request.recv(1024), 'ascii')
+           data = self.request.recv(1024)
            cur_thread = threading.current_thread()
-           response = bytes("{}: {}".format(cur_thread.name, data), 'ascii')
+           response = "{}: {}".format(cur_thread.name, data)
            self.request.sendall(response)
 
-   class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+   class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
        pass
 
    def client(ip, port, message):
-       with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-           sock.connect((ip, port))
-           sock.sendall(bytes(message, 'ascii'))
-           response = str(sock.recv(1024), 'ascii')
-           print("Received: {}".format(response))
+       sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+       sock.connect((ip, port))
+       try:
+           sock.sendall(message)
+           response = sock.recv(1024)
+           print "Received: {}".format(response)
+       finally:
+           sock.close()
 
    if __name__ == "__main__":
        # Port 0 means to select an arbitrary unused port
        HOST, PORT = "localhost", 0
 
        server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
-       with server:
-           ip, port = server.server_address
+       ip, port = server.server_address
 
-           # Start a thread with the server -- that thread will then start one
-           # more thread for each request
-           server_thread = threading.Thread(target=server.serve_forever)
-           # Exit the server thread when the main thread terminates
-           server_thread.daemon = True
-           server_thread.start()
-           print("Server loop running in thread:", server_thread.name)
+       # Start a thread with the server -- that thread will then start one
+       # more thread for each request
+       server_thread = threading.Thread(target=server.serve_forever)
+       # Exit the server thread when the main thread terminates
+       server_thread.daemon = True
+       server_thread.start()
+       print "Server loop running in thread:", server_thread.name
 
-           client(ip, port, "Hello World 1")
-           client(ip, port, "Hello World 2")
-           client(ip, port, "Hello World 3")
+       client(ip, port, "Hello World 1")
+       client(ip, port, "Hello World 2")
+       client(ip, port, "Hello World 3")
 
-           server.shutdown()
+       server.shutdown()
+       server.server_close()
 
 
 The output of the example should look something like this:
@@ -657,4 +622,3 @@ The output of the example should look something like this:
 The :class:`ForkingMixIn` class is used in the same way, except that the server
 will spawn a new process for each request.
 Available only on POSIX platforms that support :func:`~os.fork`.
-

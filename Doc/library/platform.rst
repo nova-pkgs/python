@@ -3,9 +3,11 @@
 
 .. module:: platform
    :synopsis: Retrieves as much platform identifying data as possible.
-
-.. moduleauthor:: Marc-André Lemburg <mal@egenix.com>
+.. moduleauthor:: Marc-Andre Lemburg <mal@egenix.com>
 .. sectionauthor:: Bjorn Pettersen <bpettersen@corp.fairisaac.com>
+
+
+.. versionadded:: 2.3
 
 **Source code:** :source:`Lib/platform.py`
 
@@ -79,11 +81,6 @@ Cross Platform
    Setting *terse* to true causes the function to return only the absolute minimum
    information needed to identify the platform.
 
-   .. versionchanged:: 3.8
-      On macOS, the function now uses :func:`mac_ver`, if it returns a
-      non-empty release string, to get the macOS version rather than the darwin
-      version.
-
 
 .. function:: processor()
 
@@ -109,16 +106,22 @@ Cross Platform
 
    Returns a string identifying the Python implementation SCM branch.
 
+   .. versionadded:: 2.6
+
 
 .. function:: python_implementation()
 
    Returns a string identifying the Python implementation. Possible return values
    are: 'CPython', 'IronPython', 'Jython', 'PyPy'.
 
+   .. versionadded:: 2.6
+
 
 .. function:: python_revision()
 
    Returns a string identifying the Python implementation SCM revision.
+
+   .. versionadded:: 2.6
 
 
 .. function:: python_version()
@@ -164,19 +167,13 @@ Cross Platform
 
 .. function:: uname()
 
-   Fairly portable uname interface. Returns a :func:`~collections.namedtuple`
-   containing six attributes: :attr:`system`, :attr:`node`, :attr:`release`,
-   :attr:`version`, :attr:`machine`, and :attr:`processor`.
+   Fairly portable uname interface. Returns a tuple of strings ``(system, node,
+   release, version, machine, processor)`` identifying the underlying platform.
 
-   Note that this adds a sixth attribute (:attr:`processor`) not present
-   in the :func:`os.uname` result.  Also, the attribute names are different
-   for the first two attributes; :func:`os.uname` names them
-   :attr:`sysname` and :attr:`nodename`.
+   Note that unlike the :func:`os.uname` function this also returns possible
+   processor information as additional tuple entry.
 
    Entries which cannot be determined are set to ``''``.
-
-   .. versionchanged:: 3.3
-      Result changed from a tuple to a namedtuple.
 
 
 Java Platform
@@ -216,20 +213,15 @@ Windows Platform
       later (support for this was added in Python 2.6). It obviously
       only runs on Win32 compatible platforms.
 
-.. function:: win32_edition()
 
-   Returns a string representing the current Windows edition.  Possible
-   values include but are not limited to ``'Enterprise'``, ``'IoTUAP'``,
-   ``'ServerStandard'``, and ``'nanoserver'``.
+Win95/98 specific
+^^^^^^^^^^^^^^^^^
 
-   .. versionadded:: 3.8
+.. function:: popen(cmd, mode='r', bufsize=None)
 
-.. function:: win32_is_iot()
-
-   Returns True if the windows edition returned by win32_edition is recognized
-   as an IoT edition.
-
-   .. versionadded:: 3.8
+   Portable :func:`popen` interface.  Find a working popen implementation
+   preferring :func:`win32pipe.popen`.  On Windows NT, :func:`win32pipe.popen`
+   should work; on Windows 9x it hangs due to bugs in the MS C library.
 
 
 Mac OS Platform
@@ -249,7 +241,42 @@ Mac OS Platform
 Unix Platforms
 --------------
 
-.. function:: libc_ver(executable=sys.executable, lib='', version='', chunksize=16384)
+
+.. function:: dist(distname='', version='', id='', supported_dists=('SuSE','debian','redhat','mandrake',...))
+
+   This is an old version of the functionality now provided by
+   :func:`linux_distribution`. For new code, please use the
+   :func:`linux_distribution`.
+
+   The only difference between the two is that ``dist()`` always
+   returns the short name of the distribution taken from the
+   ``supported_dists`` parameter.
+
+   .. deprecated:: 2.6
+
+.. function:: linux_distribution(distname='', version='', id='', supported_dists=('SuSE','debian','redhat','mandrake',...), full_distribution_name=1)
+
+   Tries to determine the name of the Linux OS distribution name.
+
+   ``supported_dists`` may be given to define the set of Linux distributions to
+   look for. It defaults to a list of currently supported Linux distributions
+   identified by their release file name.
+
+   If ``full_distribution_name`` is true (default), the full distribution read
+   from the OS is returned. Otherwise the short name taken from
+   ``supported_dists`` is used.
+
+   Returns a tuple ``(distname,version,id)`` which defaults to the args given as
+   parameters.  ``id`` is the item in parentheses after the version number.  It
+   is usually the version codename.
+
+   .. note::
+      This function is deprecated since Python 3.5 and removed in Python 3.8.
+      See alternative like the `distro <https://pypi.org/project/distro>`_ package.
+
+   .. versionadded:: 2.6
+
+.. function:: libc_ver(executable=sys.executable, lib='', version='', chunksize=2048)
 
    Tries to determine the libc version against which the file executable (defaults
    to the Python interpreter) is linked.  Returns a tuple of strings ``(lib,

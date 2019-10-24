@@ -1,4 +1,5 @@
 import unittest
+from test import test_support
 
 def funcattrs(**kwds):
     def decorate(func):
@@ -26,7 +27,7 @@ class DbcheckError (Exception):
 def dbcheck(exprstr, globals=None, locals=None):
     "Decorator to implement debugging assertions"
     def decorate(func):
-        expr = compile(exprstr, "dbcheck-%s" % func.__name__, "eval")
+        expr = compile(exprstr, "dbcheck-%s" % func.func_name, "eval")
         def check(*args, **kwds):
             if not eval(expr, globals, locals):
                 raise DbcheckError(exprstr, func, args, kwds)
@@ -39,12 +40,12 @@ def dbcheck(exprstr, globals=None, locals=None):
 def countcalls(counts):
     "Decorator to count calls to a function"
     def decorate(func):
-        func_name = func.__name__
+        func_name = func.func_name
         counts[func_name] = 0
         def call(*args, **kwds):
             counts[func_name] += 1
             return func(*args, **kwds)
-        call.__name__ = func_name
+        call.func_name = func_name
         return call
     return decorate
 
@@ -62,7 +63,7 @@ def memoize(func):
         except TypeError:
             # Unhashable argument
             return func(*args)
-    call.__name__ = func.__name__
+    call.func_name = func.func_name
     return call
 
 # -----------------------------------------------
@@ -130,7 +131,7 @@ class TestDecorators(unittest.TestCase):
         @countcalls(counts)
         def double(x):
             return x * 2
-        self.assertEqual(double.__name__, 'double')
+        self.assertEqual(double.func_name, 'double')
 
         self.assertEqual(counts, dict(double=0))
 
@@ -300,5 +301,9 @@ class TestClassDecorators(unittest.TestCase):
         class C(object): pass
         self.assertEqual(C.extra, 'second')
 
-if __name__ == "__main__":
-    unittest.main()
+def test_main():
+    test_support.run_unittest(TestDecorators)
+    test_support.run_unittest(TestClassDecorators)
+
+if __name__=="__main__":
+    test_main()

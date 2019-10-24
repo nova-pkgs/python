@@ -11,7 +11,7 @@ Abstract
 --------
 
 Defines descriptors, summarizes the protocol, and shows how descriptors are
-called.  Examines a custom descriptor and several built-in Python descriptors
+called.  Examines a custom descriptor and several built-in python descriptors
 including functions, properties, static methods, and class methods.  Shows how
 each works by giving a pure Python equivalent and a sample application.
 
@@ -36,7 +36,9 @@ continuing through the base classes of ``type(a)`` excluding metaclasses. If the
 looked-up value is an object defining one of the descriptor methods, then Python
 may override the default behavior and invoke the descriptor method instead.
 Where this occurs in the precedence chain depends on which descriptor methods
-were defined.
+were defined.  Note that descriptors are only invoked for new style objects or
+classes (a class is new style if it inherits from :class:`object` or
+:class:`type`).
 
 Descriptors are a powerful, general purpose protocol.  They are the mechanism
 behind properties, methods, static methods, class methods, and :func:`super()`.
@@ -48,17 +50,17 @@ a flexible set of new tools for everyday Python programs.
 Descriptor Protocol
 -------------------
 
-``descr.__get__(self, obj, type=None) -> value``
+``descr.__get__(self, obj, type=None) --> value``
 
-``descr.__set__(self, obj, value) -> None``
+``descr.__set__(self, obj, value) --> None``
 
-``descr.__delete__(self, obj) -> None``
+``descr.__delete__(self, obj) --> None``
 
 That is all there is to it.  Define any of these methods and an object is
 considered a descriptor and can override default behavior upon being looked up
 as an attribute.
 
-If an object defines :meth:`__set__` or :meth:`__delete__`, it is considered
+If an object defines both :meth:`__get__` and :meth:`__set__`, it is considered
 a data descriptor.  Descriptors that only define :meth:`__get__` are called
 non-data descriptors (they are typically used for methods but other uses are
 possible).
@@ -87,6 +89,8 @@ of ``obj``.  If ``d`` defines the method :meth:`__get__`, then ``d.__get__(obj)`
 is invoked according to the precedence rules listed below.
 
 The details of invocation depend on whether ``obj`` is an object or a class.
+Either way, descriptors only work for new style objects and classes.  A class is
+new style if it is a subclass of :class:`object`.
 
 For objects, the machinery is in :meth:`object.__getattribute__` which
 transforms ``b.x`` into ``type(b).__dict__['x'].__get__(b, type(b))``.  The
@@ -111,21 +115,23 @@ The important points to remember are:
 
 * descriptors are invoked by the :meth:`__getattribute__` method
 * overriding :meth:`__getattribute__` prevents automatic descriptor calls
+* :meth:`__getattribute__` is only available with new style classes and objects
 * :meth:`object.__getattribute__` and :meth:`type.__getattribute__` make
   different calls to :meth:`__get__`.
 * data descriptors always override instance dictionaries.
 * non-data descriptors may be overridden by instance dictionaries.
 
 The object returned by ``super()`` also has a custom :meth:`__getattribute__`
-method for invoking descriptors.  The attribute lookup ``super(B, obj).m`` searches
+method for invoking descriptors.  The call ``super(B, obj).m()`` searches
 ``obj.__class__.__mro__`` for the base class ``A`` immediately following ``B``
 and then returns ``A.__dict__['m'].__get__(obj, B)``.  If not a descriptor,
 ``m`` is returned unchanged.  If not in the dictionary, ``m`` reverts to a
 search using :meth:`object.__getattribute__`.
 
-The implementation details are in :c:func:`super_getattro()` in
-:source:`Objects/typeobject.c`.  and a pure Python equivalent can be found in
-`Guido's Tutorial`_.
+Note, in Python 2.2, ``super(B, obj).m()`` would only invoke :meth:`__get__` if
+``m`` was a data descriptor.  In Python 2.3, non-data descriptors also get
+invoked unless an old-style class is involved.  The implementation details are
+in :c:func:`super_getattro()` in :source:`Objects/typeobject.c`.
 
 .. _`Guido's Tutorial`: https://www.python.org/download/releases/2.2.3/descrintro/#cooperation
 
@@ -155,11 +161,11 @@ descriptor is useful for monitoring just a few chosen attributes::
             self.name = name
 
         def __get__(self, obj, objtype):
-            print('Retrieving', self.name)
+            print 'Retrieving', self.name
             return self.val
 
         def __set__(self, obj, val):
-            print('Updating', self.name)
+            print 'Updating', self.name
             self.val = val
 
     >>> class MyClass(object):
@@ -180,7 +186,7 @@ descriptor is useful for monitoring just a few chosen attributes::
 
 The protocol is simple and offers exciting possibilities.  Several use cases are
 so common that they have been packaged into individual function calls.
-Properties, bound methods, static methods, and class methods are all
+Properties, bound and unbound methods, static methods, and class methods are all
 based on the descriptor protocol.
 
 
@@ -266,24 +272,23 @@ Python's object oriented features are built upon a function based environment.
 Using non-data descriptors, the two are merged seamlessly.
 
 Class dictionaries store methods as functions.  In a class definition, methods
-are written using :keyword:`def` or :keyword:`lambda`, the usual tools for
-creating functions.  Methods only differ from regular functions in that the
+are written using :keyword:`def` and :keyword:`lambda`, the usual tools for
+creating functions.  The only difference from regular functions is that the
 first argument is reserved for the object instance.  By Python convention, the
 instance reference is called *self* but may be called *this* or any other
 variable name.
 
 To support method calls, functions include the :meth:`__get__` method for
 binding methods during attribute access.  This means that all functions are
-non-data descriptors which return bound methods when they are invoked from an
-object.  In pure Python, it works like this::
+non-data descriptors which return bound or unbound methods depending whether
+they are invoked from an object or a class.  In pure python, it works like
+this::
 
     class Function(object):
         . . .
         def __get__(self, obj, objtype=None):
             "Simulate func_descr_get() in Objects/funcobject.c"
-            if obj is None:
-                return self
-            return types.MethodType(self, obj)
+            return types.MethodType(self, obj, objtype)
 
 Running the interpreter shows how the function descriptor works in practice::
 
@@ -292,34 +297,25 @@ Running the interpreter shows how the function descriptor works in practice::
     ...         return x
     ...
     >>> d = D()
-
-    # Access through the class dictionary does not invoke __get__.
-    # It just returns the underlying function object.
-    >>> D.__dict__['f']
-    <function D.f at 0x00C45070>
-
-    # Dotted access from a class calls __get__() which just returns
-    # the underlying function unchanged.
-    >>> D.f
-    <function D.f at 0x00C45070>
-
-    # The function has a __qualname__ attribute to support introspection
-    >>> D.f.__qualname__
-    'D.f'
-
-    # Dotted access from an instance calls __get__() which returns the
-    # function wrapped in a bound method object
-    >>> d.f
+    >>> D.__dict__['f']  # Stored internally as a function
+    <function f at 0x00C45070>
+    >>> D.f              # Get from a class becomes an unbound method
+    <unbound method D.f>
+    >>> d.f              # Get from an instance becomes a bound method
     <bound method D.f of <__main__.D object at 0x00B18C90>>
 
-    # Internally, the bound method stores the underlying function,
-    # the bound instance, and the class of the bound instance.
-    >>> d.f.__func__
-    <function D.f at 0x1012e5ae8>
-    >>> d.f.__self__
-    <__main__.D object at 0x1012e1f98>
-    >>> d.f.__class__
-    <class 'method'>
+The output suggests that bound and unbound methods are two different types.
+While they could have been implemented that way, the actual C implementation of
+:c:type:`PyMethod_Type` in :source:`Objects/classobject.c` is a single object
+with two different representations depending on whether the :attr:`im_self`
+field is set or is *NULL* (the C equivalent of ``None``).
+
+Likewise, the effects of calling a method object depend on the :attr:`im_self`
+field. If set (meaning bound), the original function (stored in the
+:attr:`im_func` field) is called as expected with the first argument set to the
+instance.  If unbound, all of the arguments are passed unchanged to the original
+function. The actual C implementation of :func:`instancemethod_call()` is only
+slightly more complex in that it includes some type checking.
 
 
 Static Methods and Class Methods
@@ -369,12 +365,12 @@ calls are unexciting::
 
     >>> class E(object):
     ...     def f(x):
-    ...         print(x)
+    ...         print x
     ...     f = staticmethod(f)
     ...
-    >>> E.f(3)
+    >>> print E.f(3)
     3
-    >>> E().f(3)
+    >>> print E().f(3)
     3
 
 Using the non-data descriptor protocol, a pure Python version of
@@ -395,12 +391,12 @@ for whether the caller is an object or a class::
 
     >>> class E(object):
     ...     def f(klass, x):
-    ...         return klass.__name__, x
+    ...          return klass.__name__, x
     ...     f = classmethod(f)
     ...
-    >>> print(E.f(3))
+    >>> print E.f(3)
     ('E', 3)
-    >>> print(E().f(3))
+    >>> print E().f(3)
     ('E', 3)
 
 

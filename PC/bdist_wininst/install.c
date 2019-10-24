@@ -1,9 +1,10 @@
 /*
-  IMPORTANT NOTE: IF THIS FILE IS CHANGED, PCBUILD\BDIST_WININST.VCXPROJ MUST
-  BE REBUILT AS WELL.
+  IMPORTANT NOTE: IF THIS FILE IS CHANGED, WININST-6.EXE MUST BE RECOMPILED
+  WITH THE MSVC6 WININST.DSW WORKSPACE FILE MANUALLY, AND WININST-7.1.EXE MUST
+  BE RECOMPILED WITH THE MSVC 2003.NET WININST-7.1.VCPROJ FILE MANUALLY.
 
-  IF CHANGES TO THIS FILE ARE CHECKED IN, THE RECOMPILED BINARIES MUST BE
-  CHECKED IN AS WELL!
+  IF CHANGES TO THIS FILE ARE CHECKED INTO PYTHON CVS, THE RECOMPILED BINARIES
+  MUST BE CHECKED IN AS WELL!
 */
 
 /*
@@ -113,7 +114,6 @@
 FILE *logfile;
 
 char modulename[MAX_PATH];
-wchar_t wmodulename[MAX_PATH];
 
 HWND hwndMain;
 HWND hDialog;
@@ -152,13 +152,6 @@ char *failure_reason = NULL;
 
 HANDLE hBitmap;
 char *bitmap_bytes;
-
-static const char *REGISTRY_SUFFIX_6432 =
-#ifdef _WIN64
-                                          "";
-#else
-                                          "-32";
-#endif
 
 
 #define WM_NUMFILES WM_USER+1
@@ -306,27 +299,6 @@ static int do_compile_files(int (__cdecl * PyRun_SimpleString)(char *),
 
 typedef void PyObject;
 
-// Convert a "char *" string to "whcar_t *", or NULL on error.
-// Result string must be free'd
-wchar_t *widen_string(char *src)
-{
-    wchar_t *result;
-    DWORD dest_cch;
-    int src_len = strlen(src) + 1; // include NULL term in all ops
-    /* use MultiByteToWideChar() to see how much we need. */
-    /* NOTE: this will include the null-term in the length */
-    dest_cch = MultiByteToWideChar(CP_ACP, 0, src, src_len, NULL, 0);
-    // alloc the buffer
-    result = (wchar_t *)malloc(dest_cch * sizeof(wchar_t));
-    if (result==NULL)
-        return NULL;
-    /* do the conversion */
-    if (0==MultiByteToWideChar(CP_ACP, 0, src, src_len, result, dest_cch)) {
-        free(result);
-        return NULL;
-    }
-    return result;
-}
 
 /*
  * Returns number of files which failed to compile,
@@ -335,7 +307,7 @@ wchar_t *widen_string(char *src)
 static int compile_filelist(HINSTANCE hPython, BOOL optimize_flag)
 {
     DECLPROC(hPython, void, Py_Initialize, (void));
-    DECLPROC(hPython, void, Py_SetProgramName, (wchar_t *));
+    DECLPROC(hPython, void, Py_SetProgramName, (char *));
     DECLPROC(hPython, void, Py_Finalize, (void));
     DECLPROC(hPython, int, PyRun_SimpleString, (char *));
     DECLPROC(hPython, PyObject *, PySys_GetObject, (char *));
@@ -354,7 +326,7 @@ static int compile_filelist(HINSTANCE hPython, BOOL optimize_flag)
         return -1;
 
     *Py_OptimizeFlag = optimize_flag ? 1 : 0;
-    Py_SetProgramName(wmodulename);
+    Py_SetProgramName(modulename);
     Py_Initialize();
 
     errors += do_compile_files(PyRun_SimpleString, optimize_flag);
@@ -631,18 +603,19 @@ static PyObject *PyMessageBox(PyObject *self, PyObject *args)
     return g_Py_BuildValue("i", rc);
 }
 
-static PyObject *GetRootHKey(PyObject *self, PyObject *Py_UNUSED(ignored))
+static PyObject *GetRootHKey(PyObject *self)
 {
     return g_PyLong_FromVoidPtr(hkey_root);
 }
 
 #define METH_VARARGS 0x0001
 #define METH_NOARGS   0x0004
+typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
 
 PyMethodDef meth[] = {
     {"create_shortcut", CreateShortcut, METH_VARARGS, NULL},
     {"get_special_folder_path", GetSpecialFolderPath, METH_VARARGS, NULL},
-    {"get_root_hkey", GetRootHKey, METH_NOARGS, NULL},
+    {"get_root_hkey", (PyCFunction)GetRootHKey, METH_NOARGS, NULL},
     {"file_created", FileCreated, METH_VARARGS, NULL},
     {"directory_created", DirectoryCreated, METH_VARARGS, NULL},
     {"message_box", PyMessageBox, METH_VARARGS, NULL},
@@ -663,8 +636,8 @@ static HINSTANCE LoadPythonDll(char *fname)
     if (h)
         return h;
     wsprintf(subkey_name,
-             "SOFTWARE\\Python\\PythonCore\\%d.%d%s\\InstallPath",
-             py_major, py_minor, REGISTRY_SUFFIX_6432);
+             "SOFTWARE\\Python\\PythonCore\\%d.%d\\InstallPath",
+             py_major, py_minor);
     if (ERROR_SUCCESS != RegQueryValue(HKEY_CURRENT_USER, subkey_name,
                                        fullpath, &size) &&
         ERROR_SUCCESS != RegQueryValue(HKEY_LOCAL_MACHINE, subkey_name,
@@ -672,9 +645,7 @@ static HINSTANCE LoadPythonDll(char *fname)
         return NULL;
     strcat(fullpath, "\\");
     strcat(fullpath, fname);
-    // We use LOAD_WITH_ALTERED_SEARCH_PATH to ensure any dependent DLLs
-    // next to the Python DLL (eg, the CRT DLL) are also loaded.
-    return LoadLibraryEx(fullpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+    return LoadLibrary(fullpath);
 }
 
 static int prepare_script_environment(HINSTANCE hPython)
@@ -694,7 +665,7 @@ static int prepare_script_environment(HINSTANCE hPython)
     if (!Py_BuildValue || !PyArg_ParseTuple || !PyErr_Format)
         return 1;
 
-    mod = PyImport_ImportModule("builtins");
+    mod = PyImport_ImportModule("__builtin__");
     if (mod) {
         int i;
         g_PyExc_ValueError = PyObject_GetAttrString(mod, "ValueError");
@@ -717,7 +688,7 @@ static int prepare_script_environment(HINSTANCE hPython)
  * 1 if the Python-dll does not export the functions we need
  * 2 if no install-script is specified in pathname
  * 3 if the install-script file could not be opened
- * the return value of PyRun_SimpleString() or Py_FinalizeEx() otherwise,
+ * the return value of PyRun_SimpleString() otherwise,
  * which is 0 if everything is ok, -1 if an exception had occurred
  * in the install-script.
  */
@@ -725,12 +696,11 @@ static int prepare_script_environment(HINSTANCE hPython)
 static int
 do_run_installscript(HINSTANCE hPython, char *pathname, int argc, char **argv)
 {
-    int fh, result, i;
-    static wchar_t *wargv[256];
+    int fh, result;
     DECLPROC(hPython, void, Py_Initialize, (void));
-    DECLPROC(hPython, int, PySys_SetArgv, (int, wchar_t **));
+    DECLPROC(hPython, int, PySys_SetArgv, (int, char **));
     DECLPROC(hPython, int, PyRun_SimpleString, (char *));
-    DECLPROC(hPython, int, Py_FinalizeEx, (void));
+    DECLPROC(hPython, void, Py_Finalize, (void));
     DECLPROC(hPython, PyObject *, Py_BuildValue, (char *, ...));
     DECLPROC(hPython, PyObject *, PyCFunction_New,
              (PyMethodDef *, PyObject *));
@@ -738,7 +708,7 @@ do_run_installscript(HINSTANCE hPython, char *pathname, int argc, char **argv)
     DECLPROC(hPython, PyObject *, PyErr_Format, (PyObject *, char *));
 
     if (!Py_Initialize || !PySys_SetArgv
-        || !PyRun_SimpleString || !Py_FinalizeEx)
+        || !PyRun_SimpleString || !Py_Finalize)
         return 1;
 
     if (!Py_BuildValue || !PyArg_ParseTuple || !PyErr_Format)
@@ -750,7 +720,7 @@ do_run_installscript(HINSTANCE hPython, char *pathname, int argc, char **argv)
     if (pathname == NULL || pathname[0] == '\0')
         return 2;
 
-    fh = open(pathname, _O_RDONLY | O_NOINHERIT);
+    fh = open(pathname, _O_RDONLY);
     if (-1 == fh) {
         fprintf(stderr, "Could not open postinstall-script %s\n",
             pathname);
@@ -762,16 +732,7 @@ do_run_installscript(HINSTANCE hPython, char *pathname, int argc, char **argv)
     Py_Initialize();
 
     prepare_script_environment(hPython);
-    // widen the argv array for py3k.
-    memset(wargv, 0, sizeof(wargv));
-    for (i=0;i<argc;i++)
-        wargv[i] = argv[i] ? widen_string(argv[i]) : NULL;
-    PySys_SetArgv(argc, wargv);
-    // free the strings we just widened.
-    for (i=0;i<argc;i++)
-        if (wargv[i])
-            free(wargv[i]);
-
+    PySys_SetArgv(argc, argv);
     result = 3;
     {
         struct _stat statbuf;
@@ -785,9 +746,7 @@ do_run_installscript(HINSTANCE hPython, char *pathname, int argc, char **argv)
             }
         }
     }
-    if (Py_FinalizeEx() < 0) {
-        result = -1;
-    }
+    Py_Finalize();
 
     close(fh);
     return result;
@@ -848,24 +807,22 @@ static int do_run_simple_script(HINSTANCE hPython, char *script)
 {
     int rc;
     DECLPROC(hPython, void, Py_Initialize, (void));
-    DECLPROC(hPython, void, Py_SetProgramName, (wchar_t *));
-    DECLPROC(hPython, int, Py_FinalizeEx, (void));
+    DECLPROC(hPython, void, Py_SetProgramName, (char *));
+    DECLPROC(hPython, void, Py_Finalize, (void));
     DECLPROC(hPython, int, PyRun_SimpleString, (char *));
     DECLPROC(hPython, void, PyErr_Print, (void));
 
-    if (!Py_Initialize || !Py_SetProgramName || !Py_FinalizeEx ||
+    if (!Py_Initialize || !Py_SetProgramName || !Py_Finalize ||
         !PyRun_SimpleString || !PyErr_Print)
         return -1;
 
-    Py_SetProgramName(wmodulename);
+    Py_SetProgramName(modulename);
     Py_Initialize();
     prepare_script_environment(hPython);
     rc = PyRun_SimpleString(script);
     if (rc)
         PyErr_Print();
-    if (Py_FinalizeEx() < 0) {
-        rc = -1;
-    }
+    Py_Finalize();
     return rc;
 }
 
@@ -1031,7 +988,7 @@ static char *MapExistingFile(char *pathname, DWORD *psize)
                                       NULL, PAGE_READONLY, 0, 0, NULL);
     CloseHandle(hFile);
 
-    if (hFileMapping == NULL)
+    if (hFileMapping == INVALID_HANDLE_VALUE)
         return NULL;
 
     data = MapViewOfFile(hFileMapping,
@@ -1228,7 +1185,7 @@ static void CenterWindow(HWND hwnd)
 
 #include <prsht.h>
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 IntroDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR lpnm;
@@ -1577,7 +1534,7 @@ SCHEME *GetScheme(int major, int minor)
     return old_scheme;
 }
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 SelectPythonDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR lpnm;
@@ -1614,7 +1571,7 @@ SelectPythonDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
             if (count == 0) {
                 char Buffer[4096];
-                const char *msg;
+                char *msg;
                 if (target_version && target_version[0]) {
                     wsprintf(Buffer,
                              "Python version %s required, which was not found"
@@ -1879,7 +1836,7 @@ static void CloseLogfile(void)
         fclose(logfile);
 }
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 InstallFilesDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR lpnm;
@@ -2034,7 +1991,7 @@ InstallFilesDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 FinishedDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR lpnm;
@@ -2179,7 +2136,7 @@ BOOL MyIsUserAnAdmin()
     // to leave the library loaded)
     if (0 == (shell32=LoadLibrary("shell32.dll")))
         return FALSE;
-    if (NULL == (pfnIsUserAnAdmin=(PFNIsUserAnAdmin)GetProcAddress(shell32, "IsUserAnAdmin")))
+    if (0 == (pfnIsUserAnAdmin=(PFNIsUserAnAdmin)GetProcAddress(shell32, "IsUserAnAdmin")))
         return FALSE;
     return (*pfnIsUserAnAdmin)();
 }
@@ -2208,6 +2165,23 @@ BOOL NeedAutoUAC()
     RegCloseKey(hk);
     // Python is installed in HKLM - we must elevate.
     return TRUE;
+}
+
+// Returns TRUE if the platform supports UAC.
+BOOL PlatformSupportsUAC()
+{
+    // Note that win2k does seem to support ShellExecute with 'runas',
+    // but does *not* support IsUserAnAdmin - so we just pretend things
+    // only work on XP and later.
+    BOOL bIsWindowsXPorLater;
+    OSVERSIONINFO winverinfo;
+    winverinfo.dwOSVersionInfoSize = sizeof(winverinfo);
+    if (!GetVersionEx(&winverinfo))
+        return FALSE; // something bad has gone wrong
+    bIsWindowsXPorLater =
+       ( (winverinfo.dwMajorVersion > 5) ||
+       ( (winverinfo.dwMajorVersion == 5) && (winverinfo.dwMinorVersion >= 1) ));
+    return bIsWindowsXPorLater;
 }
 
 // Spawn ourself as an elevated application.  On failure, a message is
@@ -2263,11 +2237,9 @@ int DoInstall(void)
     GetPrivateProfileString("Setup", "user_access_control", "",
                              user_access_control, sizeof(user_access_control), ini_file);
 
-    strcat(target_version, REGISTRY_SUFFIX_6432);
-
     // See if we need to do the Vista UAC magic.
     if (strcmp(user_access_control, "force")==0) {
-        if (!MyIsUserAnAdmin()) {
+        if (PlatformSupportsUAC() && !MyIsUserAnAdmin()) {
             SpawnUAC();
             return 0;
         }
@@ -2275,7 +2247,7 @@ int DoInstall(void)
     } else if (strcmp(user_access_control, "auto")==0) {
         // Check if it looks like we need UAC control, based
         // on how Python itself was installed.
-        if (!MyIsUserAnAdmin() && NeedAutoUAC()) {
+        if (PlatformSupportsUAC() && !MyIsUserAnAdmin() && NeedAutoUAC()) {
             SpawnUAC();
             return 0;
         }
@@ -2657,7 +2629,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst,
     char *basename;
 
     GetModuleFileName(NULL, modulename, sizeof(modulename));
-    GetModuleFileNameW(NULL, wmodulename, sizeof(wmodulename)/sizeof(wmodulename[0]));
 
     /* Map the executable file to memory */
     arc_data = MapExistingFile(modulename, &arc_size);

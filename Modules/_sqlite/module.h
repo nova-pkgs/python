@@ -1,6 +1,6 @@
 /* module.h - definitions for the module
  *
- * Copyright (C) 2004-2010 Gerhard HÃ¤ring <gh@ghaering.de>
+ * Copyright (C) 2004-2010 Gerhard Häring <gh@ghaering.de>
  *
  * This file is part of pysqlite.
  *
@@ -23,7 +23,6 @@
 
 #ifndef PYSQLITE_MODULE_H
 #define PYSQLITE_MODULE_H
-#define PY_SSIZE_T_CLEAN
 #include "Python.h"
 
 #define PYSQLITE_VERSION "2.6.0"
@@ -39,7 +38,9 @@ extern PyObject* pysqlite_IntegrityError;
 extern PyObject* pysqlite_DataError;
 extern PyObject* pysqlite_NotSupportedError;
 
-/* A dictionary, mapping column types (INTEGER, VARCHAR, etc.) to converter
+extern PyObject* pysqlite_OptimizedUnicode;
+
+/* A dictionary, mapping colum types (INTEGER, VARCHAR, etc.) to converter
  * functions, that convert the SQL value to the appropriate Python value.
  * The key is uppercase.
  */

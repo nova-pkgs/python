@@ -3,11 +3,12 @@
 
 .. module:: heapq
    :synopsis: Heap queue algorithm (a.k.a. priority queue).
-
 .. moduleauthor:: Kevin O'Connor
 .. sectionauthor:: Guido van Rossum <guido@python.org>
 .. sectionauthor:: François Pinard
 .. sectionauthor:: Raymond Hettinger
+
+.. versionadded:: 2.3
 
 **Source code:** :source:`Lib/heapq.py`
 
@@ -51,13 +52,13 @@ The following functions are provided:
    invariant.  If the heap is empty, :exc:`IndexError` is raised.  To access the
    smallest item without popping it, use ``heap[0]``.
 
-
 .. function:: heappushpop(heap, item)
 
    Push *item* on the heap, then pop and return the smallest item from the
    *heap*.  The combined action runs more efficiently than :func:`heappush`
    followed by a separate call to :func:`heappop`.
 
+   .. versionadded:: 2.6
 
 .. function:: heapify(x)
 
@@ -83,7 +84,7 @@ The following functions are provided:
 The module also offers three general purpose functions based on heaps.
 
 
-.. function:: merge(*iterables, key=None, reverse=False)
+.. function:: merge(*iterables)
 
    Merge multiple sorted inputs into a single sorted output (for example, merge
    timestamped entries from multiple log files).  Returns an :term:`iterator`
@@ -93,37 +94,34 @@ The module also offers three general purpose functions based on heaps.
    not pull the data into memory all at once, and assumes that each of the input
    streams is already sorted (smallest to largest).
 
-   Has two optional arguments which must be specified as keyword arguments.
-
-   *key* specifies a :term:`key function` of one argument that is used to
-   extract a comparison key from each input element.  The default value is
-   ``None`` (compare the elements directly).
-
-   *reverse* is a boolean value.  If set to ``True``, then the input elements
-   are merged as if each comparison were reversed. To achieve behavior similar
-   to ``sorted(itertools.chain(*iterables), reverse=True)``, all iterables must
-   be sorted from largest to smallest.
-
-   .. versionchanged:: 3.5
-      Added the optional *key* and *reverse* parameters.
+   .. versionadded:: 2.6
 
 
-.. function:: nlargest(n, iterable, key=None)
+.. function:: nlargest(n, iterable[, key])
 
    Return a list with the *n* largest elements from the dataset defined by
    *iterable*.  *key*, if provided, specifies a function of one argument that is
-   used to extract a comparison key from each element in *iterable* (for example,
-   ``key=str.lower``).  Equivalent to:  ``sorted(iterable, key=key,
-   reverse=True)[:n]``.
+   used to extract a comparison key from each element in the iterable:
+   ``key=str.lower`` Equivalent to:  ``sorted(iterable, key=key,
+   reverse=True)[:n]``
+
+   .. versionadded:: 2.4
+
+   .. versionchanged:: 2.5
+      Added the optional *key* argument.
 
 
-.. function:: nsmallest(n, iterable, key=None)
+.. function:: nsmallest(n, iterable[, key])
 
    Return a list with the *n* smallest elements from the dataset defined by
    *iterable*.  *key*, if provided, specifies a function of one argument that is
-   used to extract a comparison key from each element in *iterable* (for example,
-   ``key=str.lower``).  Equivalent to:  ``sorted(iterable, key=key)[:n]``.
+   used to extract a comparison key from each element in the iterable:
+   ``key=str.lower`` Equivalent to:  ``sorted(iterable, key=key)[:n]``
 
+   .. versionadded:: 2.4
+
+   .. versionchanged:: 2.5
+      Added the optional *key* argument.
 
 The latter two functions perform best for smaller values of *n*.  For larger
 values, it is more efficient to use the :func:`sorted` function.  Also, when
@@ -172,8 +170,9 @@ for a heap, and it presents several implementation challenges:
 * Sort stability:  how do you get two tasks with equal priorities to be returned
   in the order they were originally added?
 
-* Tuple comparison breaks for (priority, task) pairs if the priorities are equal
-  and the tasks do not have a default comparison order.
+* In the future with Python 3, tuple comparison breaks for (priority, task)
+  pairs if the priorities are equal and the tasks do not have a default
+  comparison order.
 
 * If the priority of a task changes, how do you move it to a new position in
   the heap?
@@ -187,24 +186,13 @@ a tie-breaker so that two tasks with the same priority are returned in the order
 they were added. And since no two entry counts are the same, the tuple
 comparison will never attempt to directly compare two tasks.
 
-Another solution to the problem of non-comparable tasks is to create a wrapper
-class that ignores the task item and only compares the priority field::
-
-    from dataclasses import dataclass, field
-    from typing import Any
-
-    @dataclass(order=True)
-    class PrioritizedItem:
-        priority: int
-        item: Any=field(compare=False)
-
 The remaining challenges revolve around finding a pending task and making
 changes to its priority or removing it entirely.  Finding a task can be done
 with a dictionary pointing to an entry in the queue.
 
 Removing the entry or changing its priority is more difficult because it would
 break the heap structure invariants.  So, a possible solution is to mark the
-entry as removed and add a new entry with the revised priority::
+existing entry as removed and add a new entry with the revised priority::
 
     pq = []                         # list of entries arranged in a heap
     entry_finder = {}               # mapping of tasks to entries

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _bytearrayobjects:
 
@@ -6,6 +6,8 @@ Byte Array Objects
 ------------------
 
 .. index:: object: bytearray
+
+.. versionadded:: 2.6
 
 
 .. c:type:: PyByteArrayObject
@@ -16,8 +18,7 @@ Byte Array Objects
 .. c:var:: PyTypeObject PyByteArray_Type
 
    This instance of :c:type:`PyTypeObject` represents the Python bytearray type;
-   it is the same object as :class:`bytearray` in the Python layer.
-
+   it is the same object as ``bytearray`` in the Python layer.
 
 Type check macros
 ^^^^^^^^^^^^^^^^^
@@ -40,7 +41,7 @@ Direct API functions
 .. c:function:: PyObject* PyByteArray_FromObject(PyObject *o)
 
    Return a new bytearray object from any object, *o*, that implements the
-   :ref:`buffer protocol <bufferobjects>`.
+   buffer protocol.
 
    .. XXX expand about the buffer protocol, at least somewhere
 
@@ -64,8 +65,7 @@ Direct API functions
 .. c:function:: char* PyByteArray_AsString(PyObject *bytearray)
 
    Return the contents of *bytearray* as a char array after checking for a
-   *NULL* pointer.  The returned array always has an extra
-   null byte appended.
+   *NULL* pointer.
 
 
 .. c:function:: int PyByteArray_Resize(PyObject *bytearray, Py_ssize_t len)

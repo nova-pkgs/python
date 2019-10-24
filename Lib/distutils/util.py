@@ -4,44 +4,51 @@ Miscellaneous utility functions -- anything that doesn't fit into
 one of the other *util.py modules.
 """
 
-import os
-import re
-import importlib.util
-import string
-import sys
+__revision__ = "$Id$"
+
+import sys, os, string, re
 from distutils.errors import DistutilsPlatformError
 from distutils.dep_util import newer
 from distutils.spawn import spawn
 from distutils import log
 from distutils.errors import DistutilsByteCompileError
 
-def get_host_platform():
-    """Return a string that identifies the current platform.  This is used mainly to
-    distinguish platform-specific build directories and platform-specific built
-    distributions.  Typically includes the OS name and version and the
-    architecture (as supplied by 'os.uname()'), although the exact information
-    included depends on the OS; eg. on Linux, the kernel version isn't
-    particularly important.
+def get_platform ():
+    """Return a string that identifies the current platform.  This is used
+    mainly to distinguish platform-specific build directories and
+    platform-specific built distributions.  Typically includes the OS name
+    and version and the architecture (as supplied by 'os.uname()'),
+    although the exact information included depends on the OS; eg. for IRIX
+    the architecture isn't particularly important (IRIX only runs on SGI
+    hardware), but for Linux the kernel version isn't particularly
+    important.
 
     Examples of returned values:
        linux-i586
        linux-alpha (?)
        solaris-2.6-sun4u
+       irix-5.3
+       irix64-6.2
 
     Windows will return one of:
        win-amd64 (64bit Windows on AMD64 (aka x86_64, Intel64, EM64T, etc)
+       win-ia64 (64bit Windows on Itanium)
        win32 (all others - specifically, sys.platform is returned)
 
     For other non-POSIX platforms, currently just returns 'sys.platform'.
-
     """
     if os.name == 'nt':
-        if 'amd64' in sys.version.lower():
+        # sniff sys.version for architecture.
+        prefix = " bit ("
+        i = string.find(sys.version, prefix)
+        if i == -1:
+            return sys.platform
+        j = string.find(sys.version, ")", i)
+        look = sys.version[i+len(prefix):j].lower()
+        if look=='amd64':
             return 'win-amd64'
-        if '(arm)' in sys.version.lower():
-            return 'win-arm32'
-        if '(arm64)' in sys.version.lower():
-            return 'win-arm64'
+        if look=='itanium':
+            return 'win-ia64'
         return sys.platform
 
     # Set for cross builds explicitly
@@ -57,11 +64,12 @@ def get_host_platform():
 
     (osname, host, release, version, machine) = os.uname()
 
-    # Convert the OS name to lowercase, remove '/' characters, and translate
-    # spaces (for "Power Macintosh")
-    osname = osname.lower().replace('/', '')
-    machine = machine.replace(' ', '_')
-    machine = machine.replace('/', '-')
+    # Convert the OS name to lowercase, remove '/' characters
+    # (to accommodate BSD/OS), and translate spaces (for "Power Macintosh")
+    osname = string.lower(osname)
+    osname = string.replace(osname, '/', '')
+    machine = string.replace(machine, ' ', '_')
+    machine = string.replace(machine, '/', '-')
 
     if osname[:5] == "linux":
         # At least on Linux/Intel, 'machine' is the processor --
@@ -76,13 +84,15 @@ def get_host_platform():
             # bootstrap problem. We use a dict to get an error
             # if some suspicious happens.
             bitness = {2147483647:"32bit", 9223372036854775807:"64bit"}
-            machine += ".%s" % bitness[sys.maxsize]
+            machine += ".%s" % bitness[sys.maxint]
         # fall through to standard osname-release-machine representation
+    elif osname[:4] == "irix":              # could be "irix64"!
+        return "%s-%s" % (osname, release)
     elif osname[:3] == "aix":
         return "%s-%s.%s" % (osname, version, release)
     elif osname[:6] == "cygwin":
         osname = "cygwin"
-        rel_re = re.compile (r'[\d.]+', re.ASCII)
+        rel_re = re.compile (r'[\d.]+')
         m = rel_re.match(release)
         if m:
             release = m.group()
@@ -94,16 +104,8 @@ def get_host_platform():
 
     return "%s-%s-%s" % (osname, release, machine)
 
-def get_platform():
-    if os.name == 'nt':
-        TARGET_TO_PLAT = {
-            'x86' : 'win32',
-            'x64' : 'win-amd64',
-            'arm' : 'win-arm32',
-        }
-        return TARGET_TO_PLAT.get(os.environ.get('VSCMD_ARG_TGT_ARCH')) or get_host_platform()
-    else:
-        return get_host_platform()
+# get_platform ()
+
 
 def convert_path (pathname):
     """Return 'pathname' as a name that will work on the native filesystem,
@@ -119,11 +121,11 @@ def convert_path (pathname):
     if not pathname:
         return pathname
     if pathname[0] == '/':
-        raise ValueError("path '%s' cannot be absolute" % pathname)
+        raise ValueError, "path '%s' cannot be absolute" % pathname
     if pathname[-1] == '/':
-        raise ValueError("path '%s' cannot end with '/'" % pathname)
+        raise ValueError, "path '%s' cannot end with '/'" % pathname
 
-    paths = pathname.split('/')
+    paths = string.split(pathname, '/')
     while '.' in paths:
         paths.remove('.')
     if not paths:
@@ -151,8 +153,15 @@ def change_root (new_root, pathname):
             path = path[1:]
         return os.path.join(new_root, path)
 
+    elif os.name == 'os2':
+        (drive, path) = os.path.splitdrive(pathname)
+        if path[0] == os.sep:
+            path = path[1:]
+        return os.path.join(new_root, path)
+
     else:
-        raise DistutilsPlatformError("nothing known about platform '%s'" % os.name)
+        raise DistutilsPlatformError, \
+              "nothing known about platform '%s'" % os.name
 
 
 _environ_checked = 0
@@ -202,8 +211,8 @@ def subst_vars (s, local_vars):
 
     try:
         return re.sub(r'\$([a-zA-Z_][a-zA-Z_0-9]*)', _subst, s)
-    except KeyError as var:
-        raise ValueError("invalid variable '$%s'" % var)
+    except KeyError, var:
+        raise ValueError, "invalid variable '$%s'" % var
 
 # subst_vars ()
 
@@ -239,7 +248,7 @@ def split_quoted (s):
     # bit of a brain-bender to get it working right, though...
     if _wordchars_re is None: _init_regex()
 
-    s = s.strip()
+    s = string.strip(s)
     words = []
     pos = 0
 
@@ -252,7 +261,7 @@ def split_quoted (s):
 
         if s[end] in string.whitespace: # unescaped, unquoted whitespace: now
             words.append(s[:end])       # we definitely have a word delimiter
-            s = s[end:].lstrip()
+            s = string.lstrip(s[end:])
             pos = 0
 
         elif s[end] == '\\':            # preserve whatever is being escaped;
@@ -266,10 +275,12 @@ def split_quoted (s):
             elif s[end] == '"':         # slurp doubly-quoted string
                 m = _dquote_re.match(s, end)
             else:
-                raise RuntimeError("this can't happen (bad char '%c')" % s[end])
+                raise RuntimeError, \
+                      "this can't happen (bad char '%c')" % s[end]
 
             if m is None:
-                raise ValueError("bad string (mismatched %s quotes?)" % s[end])
+                raise ValueError, \
+                      "bad string (mismatched %s quotes?)" % s[end]
 
             (beg, end) = m.span()
             s = s[:beg] + s[beg+1:end-1] + s[end:]
@@ -310,13 +321,13 @@ def strtobool (val):
     are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
     'val' is anything else.
     """
-    val = val.lower()
+    val = string.lower(val)
     if val in ('y', 'yes', 't', 'true', 'on', '1'):
         return 1
     elif val in ('n', 'no', 'f', 'false', 'off', '0'):
         return 0
     else:
-        raise ValueError("invalid truth value %r" % (val,))
+        raise ValueError, "invalid truth value %r" % (val,)
 
 
 def byte_compile (py_files,
@@ -324,11 +335,11 @@ def byte_compile (py_files,
                   prefix=None, base_dir=None,
                   verbose=1, dry_run=0,
                   direct=None):
-    """Byte-compile a collection of Python source files to .pyc
-    files in a __pycache__ subdirectory.  'py_files' is a list
-    of files to compile; any files that don't end in ".py" are silently
-    skipped.  'optimize' must be one of the following:
-      0 - don't optimize
+    """Byte-compile a collection of Python source files to either .pyc
+    or .pyo files in the same directory.  'py_files' is a list of files
+    to compile; any files that don't end in ".py" are silently skipped.
+    'optimize' must be one of the following:
+      0 - don't optimize (generate .pyc)
       1 - normal optimization (like "python -O")
       2 - extra optimization (like "python -OO")
     If 'force' is true, all files are recompiled regardless of
@@ -352,11 +363,6 @@ def byte_compile (py_files,
     generated in indirect mode; unless you know what you're doing, leave
     it set to None.
     """
-
-    # Late import to fix a bootstrap issue: _posixsubprocess is built by
-    # setup.py, but setup.py uses distutils.
-    import subprocess
-
     # nothing is done if sys.dont_write_bytecode is True
     if sys.dont_write_bytecode:
         raise DistutilsByteCompileError('byte-compiling is disabled.')
@@ -390,37 +396,40 @@ def byte_compile (py_files,
             else:
                 script = open(script_name, "w")
 
-            with script:
-                script.write("""\
+            script.write("""\
 from distutils.util import byte_compile
 files = [
 """)
 
-                # XXX would be nice to write absolute filenames, just for
-                # safety's sake (script should be more robust in the face of
-                # chdir'ing before running it).  But this requires abspath'ing
-                # 'prefix' as well, and that breaks the hack in build_lib's
-                # 'byte_compile()' method that carefully tacks on a trailing
-                # slash (os.sep really) to make sure the prefix here is "just
-                # right".  This whole prefix business is rather delicate -- the
-                # problem is that it's really a directory, but I'm treating it
-                # as a dumb string, so trailing slashes and so forth matter.
+            # XXX would be nice to write absolute filenames, just for
+            # safety's sake (script should be more robust in the face of
+            # chdir'ing before running it).  But this requires abspath'ing
+            # 'prefix' as well, and that breaks the hack in build_lib's
+            # 'byte_compile()' method that carefully tacks on a trailing
+            # slash (os.sep really) to make sure the prefix here is "just
+            # right".  This whole prefix business is rather delicate -- the
+            # problem is that it's really a directory, but I'm treating it
+            # as a dumb string, so trailing slashes and so forth matter.
 
-                #py_files = map(os.path.abspath, py_files)
-                #if prefix:
-                #    prefix = os.path.abspath(prefix)
+            #py_files = map(os.path.abspath, py_files)
+            #if prefix:
+            #    prefix = os.path.abspath(prefix)
 
-                script.write(",\n".join(map(repr, py_files)) + "]\n")
-                script.write("""
+            script.write(string.join(map(repr, py_files), ",\n") + "]\n")
+            script.write("""
 byte_compile(files, optimize=%r, force=%r,
              prefix=%r, base_dir=%r,
              verbose=%r, dry_run=0,
              direct=1)
 """ % (optimize, force, prefix, base_dir, verbose))
 
-        cmd = [sys.executable]
-        cmd.extend(subprocess._optim_args_from_interpreter_flags())
-        cmd.append(script_name)
+            script.close()
+
+        cmd = [sys.executable, script_name]
+        if optimize == 1:
+            cmd.insert(1, "-O")
+        elif optimize == 2:
+            cmd.insert(1, "-OO")
         spawn(cmd, dry_run=dry_run)
         execute(os.remove, (script_name,), "removing %s" % script_name,
                 dry_run=dry_run)
@@ -441,16 +450,12 @@ byte_compile(files, optimize=%r, force=%r,
             # Terminology from the py_compile module:
             #   cfile - byte-compiled file
             #   dfile - purported source filename (same as 'file' by default)
-            if optimize >= 0:
-                opt = '' if optimize == 0 else optimize
-                cfile = importlib.util.cache_from_source(
-                    file, optimization=opt)
-            else:
-                cfile = importlib.util.cache_from_source(file)
+            cfile = file + (__debug__ and "c" or "o")
             dfile = file
             if prefix:
                 if file[:len(prefix)] != prefix:
-                    raise ValueError("invalid prefix: filename %r doesn't start with %r"
+                    raise ValueError, \
+                          ("invalid prefix: filename %r doesn't start with %r"
                            % (file, prefix))
                 dfile = dfile[len(prefix):]
             if base_dir:
@@ -472,87 +477,6 @@ def rfc822_escape (header):
     """Return a version of the string escaped for inclusion in an
     RFC-822 header, by ensuring there are 8 spaces space after each newline.
     """
-    lines = header.split('\n')
-    sep = '\n' + 8 * ' '
-    return sep.join(lines)
-
-# 2to3 support
-
-def run_2to3(files, fixer_names=None, options=None, explicit=None):
-    """Invoke 2to3 on a list of Python files.
-    The files should all come from the build area, as the
-    modification is done in-place. To reduce the build time,
-    only files modified since the last invocation of this
-    function should be passed in the files argument."""
-
-    if not files:
-        return
-
-    # Make this class local, to delay import of 2to3
-    from lib2to3.refactor import RefactoringTool, get_fixers_from_package
-    class DistutilsRefactoringTool(RefactoringTool):
-        def log_error(self, msg, *args, **kw):
-            log.error(msg, *args)
-
-        def log_message(self, msg, *args):
-            log.info(msg, *args)
-
-        def log_debug(self, msg, *args):
-            log.debug(msg, *args)
-
-    if fixer_names is None:
-        fixer_names = get_fixers_from_package('lib2to3.fixes')
-    r = DistutilsRefactoringTool(fixer_names, options=options)
-    r.refactor(files, write=True)
-
-def copydir_run_2to3(src, dest, template=None, fixer_names=None,
-                     options=None, explicit=None):
-    """Recursively copy a directory, only copying new and changed files,
-    running run_2to3 over all newly copied Python modules afterward.
-
-    If you give a template string, it's parsed like a MANIFEST.in.
-    """
-    from distutils.dir_util import mkpath
-    from distutils.file_util import copy_file
-    from distutils.filelist import FileList
-    filelist = FileList()
-    curdir = os.getcwd()
-    os.chdir(src)
-    try:
-        filelist.findall()
-    finally:
-        os.chdir(curdir)
-    filelist.files[:] = filelist.allfiles
-    if template:
-        for line in template.splitlines():
-            line = line.strip()
-            if not line: continue
-            filelist.process_template_line(line)
-    copied = []
-    for filename in filelist.files:
-        outname = os.path.join(dest, filename)
-        mkpath(os.path.dirname(outname))
-        res = copy_file(os.path.join(src, filename), outname, update=1)
-        if res[1]: copied.append(outname)
-    run_2to3([fn for fn in copied if fn.lower().endswith('.py')],
-             fixer_names=fixer_names, options=options, explicit=explicit)
-    return copied
-
-class Mixin2to3:
-    '''Mixin class for commands that run 2to3.
-    To configure 2to3, setup scripts may either change
-    the class variables, or inherit from individual commands
-    to override how 2to3 is invoked.'''
-
-    # provide list of fixers to run;
-    # defaults to all from lib2to3.fixers
-    fixer_names = None
-
-    # options dictionary
-    options = None
-
-    # list of fixers to invoke even though they are marked as explicit
-    explicit = None
-
-    def run_2to3(self, files):
-        return run_2to3(files, self.fixer_names, self.options, self.explicit)
+    lines = string.split(header, '\n')
+    header = string.join(lines, '\n' + 8*' ')
+    return header

@@ -1,6 +1,9 @@
 # Written to test interrupted system calls interfering with our many buffered
 # IO implementations.  http://bugs.python.org/issue12268
 #
+# This tests the '_io' module.  Similar tests for Python 2.x's older
+# default file I/O implementation exist within test_file2k.py.
+#
 # It was suggested that this code could be merged into test_io and the tests
 # made to work using the same method as the existing signal tests in test_io.
 # I was unable to get single process tests using alarm or setitimer that way
@@ -13,16 +16,16 @@ import select
 import signal
 import subprocess
 import sys
+from test.test_support import run_unittest
 import time
 import unittest
 
 # Test import all of the things we're about to try testing up front.
-import _io
-import _pyio
+from _io import FileIO
 
 
 @unittest.skipUnless(os.name == 'posix', 'tests requires a posix system.')
-class TestFileIOSignalInterrupt:
+class TestFileIOSignalInterrupt(unittest.TestCase):
     def setUp(self):
         self._process = None
 
@@ -38,9 +41,8 @@ class TestFileIOSignalInterrupt:
 
         subclasseses should override this to test different IO objects.
         """
-        return ('import %s as io ;'
-                'infile = io.FileIO(sys.stdin.fileno(), "rb")' %
-                self.modname)
+        return ('import _io ;'
+                'infile = _io.FileIO(sys.stdin.fileno(), "rb")')
 
     def fail_with_process_info(self, why, stdout=b'', stderr=b'',
                                communicate=True):
@@ -90,7 +92,7 @@ class TestFileIOSignalInterrupt:
         # Start a subprocess to call our read method while handling a signal.
         self._process = subprocess.Popen(
                 [sys.executable, '-u', '-c',
-                 'import signal, sys ;'
+                 'import io, signal, sys ;'
                  'signal.signal(signal.SIGINT, '
                                'lambda s, f: sys.stderr.write("$\\n")) ;'
                  + infile_setup_code + ' ;' +
@@ -180,19 +182,11 @@ class TestFileIOSignalInterrupt:
                         expected=b'hello\nworld!\n'))
 
 
-class CTestFileIOSignalInterrupt(TestFileIOSignalInterrupt, unittest.TestCase):
-    modname = '_io'
-
-class PyTestFileIOSignalInterrupt(TestFileIOSignalInterrupt, unittest.TestCase):
-    modname = '_pyio'
-
-
 class TestBufferedIOSignalInterrupt(TestFileIOSignalInterrupt):
     def _generate_infile_setup_code(self):
         """Returns the infile = ... line of code to make a BufferedReader."""
-        return ('import %s as io ;infile = io.open(sys.stdin.fileno(), "rb") ;'
-                'assert isinstance(infile, io.BufferedReader)' %
-                self.modname)
+        return ('infile = io.open(sys.stdin.fileno(), "rb") ;'
+                'import _io ;assert isinstance(infile, _io.BufferedReader)')
 
     def test_readall(self):
         """BufferedReader.read() must handle signals and not lose data."""
@@ -202,20 +196,12 @@ class TestBufferedIOSignalInterrupt(TestFileIOSignalInterrupt):
                         read_method_name='read',
                         expected=b'hello\nworld!\n'))
 
-class CTestBufferedIOSignalInterrupt(TestBufferedIOSignalInterrupt, unittest.TestCase):
-    modname = '_io'
-
-class PyTestBufferedIOSignalInterrupt(TestBufferedIOSignalInterrupt, unittest.TestCase):
-    modname = '_pyio'
-
 
 class TestTextIOSignalInterrupt(TestFileIOSignalInterrupt):
     def _generate_infile_setup_code(self):
         """Returns the infile = ... line of code to make a TextIOWrapper."""
-        return ('import %s as io ;'
-                'infile = io.open(sys.stdin.fileno(), "rt", newline=None) ;'
-                'assert isinstance(infile, io.TextIOWrapper)' %
-                self.modname)
+        return ('infile = io.open(sys.stdin.fileno(), "rt", newline=None) ;'
+                'import _io ;assert isinstance(infile, _io.TextIOWrapper)')
 
     def test_readline(self):
         """readline() must handle signals and not lose data."""
@@ -241,12 +227,13 @@ class TestTextIOSignalInterrupt(TestFileIOSignalInterrupt):
                         read_method_name='read',
                         expected="hello\nworld!\n"))
 
-class CTestTextIOSignalInterrupt(TestTextIOSignalInterrupt, unittest.TestCase):
-    modname = '_io'
 
-class PyTestTextIOSignalInterrupt(TestTextIOSignalInterrupt, unittest.TestCase):
-    modname = '_pyio'
+def test_main():
+    test_cases = [
+            tc for tc in globals().values()
+            if isinstance(tc, type) and issubclass(tc, unittest.TestCase)]
+    run_unittest(*test_cases)
 
 
 if __name__ == '__main__':
-    unittest.main()
+    test_main()

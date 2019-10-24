@@ -41,20 +41,25 @@ import tarfile
 log = logging.getLogger("multissl")
 
 OPENSSL_OLD_VERSIONS = [
-    "1.0.2",
+     "1.0.1u",
+     "1.0.2o",
 ]
 
 OPENSSL_RECENT_VERSIONS = [
-    "1.0.2t",
-    "1.1.0l",
-    "1.1.1d",
+     "1.0.2p",
+     "1.1.0i",
+     "1.1.1",
 ]
 
 LIBRESSL_OLD_VERSIONS = [
+    "2.3.10",
+    "2.4.5",
 ]
 
 LIBRESSL_RECENT_VERSIONS = [
-    "2.9.2",
+    "2.5.5",
+    "2.6.5",
+    "2.7.4",
 ]
 
 # store files in ../multissl
@@ -125,11 +130,7 @@ parser.add_argument(
         "all and runs the test suite."
     )
 )
-parser.add_argument(
-    '--system',
-    default='',
-    help="Override the automatic system type detection."
-)
+
 parser.add_argument(
     '--force',
     action='store_true',
@@ -142,7 +143,6 @@ parser.add_argument(
     dest='keep_sources',
     help="Keep original sources for debugging."
 )
-
 
 class AbstractBuilder(object):
     library = None
@@ -169,7 +169,6 @@ class AbstractBuilder(object):
         # build directory (removed after install)
         self.build_dir = os.path.join(
             self.src_dir, self.build_template.format(version))
-        self.system = args.system
 
     def __str__(self):
         return "<{0.__class__.__name__} for {0.version}>".format(self)
@@ -280,11 +279,9 @@ class AbstractBuilder(object):
         env = os.environ.copy()
         # set rpath
         env["LD_RUN_PATH"] = self.lib_dir
-        if self.system:
-            env['SYSTEM'] = self.system
-        self._subprocess_call(cmd, cwd=cwd, env=env)
+        self._subprocess_call(cmd, cwd=cwd)
         # Old OpenSSL versions do not support parallel builds.
-        self._subprocess_call(["make", "-j1"], cwd=cwd, env=env)
+        self._subprocess_call(["make", "-j1"], cwd=cwd)
 
     def _make_install(self):
         self._subprocess_call(
@@ -406,12 +403,13 @@ def main():
         for name in ['setup.py', 'Modules/_ssl.c']:
             if not os.path.isfile(os.path.join(PYTHONROOT, name)):
                 parser.error(
-                    "Must be executed from CPython build dir"
+                    "Must be executed with ./python from CPython build dir"
                 )
         if not os.path.samefile('python', sys.executable):
             parser.error(
-                "Must be executed with ./python from CPython build dir"
-            )
+            "Must be executed with ./python from CPython build dir"
+        )
+
         # check for configure and run make
         configure_make()
 

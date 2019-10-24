@@ -13,6 +13,4 @@ cur.execute("insert into people values (?, ?)", (who, age))
 # And this is the named style:
 cur.execute("select * from people where name_last=:who and age=:age", {"who": who, "age": age})
 
-print(cur.fetchone())
-
-con.close()
+print cur.fetchone()

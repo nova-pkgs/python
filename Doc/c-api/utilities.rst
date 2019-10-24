@@ -1,4 +1,5 @@
-.. highlight:: c
+.. highlightlang:: c
+
 
 .. _utilities:
 

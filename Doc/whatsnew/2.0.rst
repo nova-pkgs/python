@@ -111,7 +111,7 @@ python-dev.  Therefore, a relatively formal process has been set up to write
 Python Enhancement Proposals (PEPs), modelled on the Internet RFC process.  PEPs
 are draft documents that describe a proposed new feature, and are continually
 revised until the community reaches a consensus, either accepting or rejecting
-the proposal.  Quoting from the introduction to :pep:`1`, "PEP Purpose and
+the proposal.  Quoting from the introduction to PEP 1, "PEP Purpose and
 Guidelines":
 
 
@@ -127,11 +127,11 @@ Guidelines":
    that have gone into Python.  The PEP author is responsible for building
    consensus within the community and documenting dissenting opinions.
 
-Read the rest of :pep:`1` for the details of the PEP editorial process, style, and
+Read the rest of PEP 1 for the details of the PEP editorial process, style, and
 format.  PEPs are kept in the Python CVS tree on SourceForge, though they're not
 part of the Python 2.0 distribution, and are also available in HTML form from
 https://www.python.org/dev/peps/.  As of September 2000, there are 25 PEPS, ranging
-from :pep:`201`, "Lockstep Iteration", to PEP 225, "Elementwise/Objectwise
+from PEP 201, "Lockstep Iteration", to PEP 225, "Elementwise/Objectwise
 Operators".
 
 .. ======================================================================
@@ -166,7 +166,7 @@ encoding.  Encodings are named by strings, such as ``'ascii'``, ``'utf-8'``,
 registering new encodings that are then available throughout a Python program.
 If an encoding isn't specified, the default encoding is usually 7-bit ASCII,
 though it can be changed for your Python installation by calling the
-``sys.setdefaultencoding(encoding)`` function in a customized version of
+``sys.setdefaultencoding(encoding)`` function in a customised version of
 :file:`site.py`.
 
 Combining 8-bit and Unicode strings always coerces to Unicode, using the default
@@ -189,7 +189,7 @@ support Unicode:
   ignored and ``'replace'`` uses U+FFFD, the official replacement character, in
   case of any problems.
 
-* The ``exec`` statement, and various built-ins such as ``eval()``,
+* The :keyword:`exec` statement, and various built-ins such as ``eval()``,
   ``getattr()``, and ``setattr()`` will also accept Unicode strings as well as
   regular strings.  (It's possible that the process of fixing this missed some
   built-ins; if you find a built-in function that accepts strings but doesn't
@@ -284,7 +284,7 @@ write the following to do it::
                      L)
 
 Because of Python's scoping rules, a default argument is used so that the
-anonymous function created by the :keyword:`lambda` expression knows what
+anonymous function created by the :keyword:`lambda` statement knows what
 substring is being searched for.  List comprehensions make this cleaner::
 
    sublist = [ s for s in L if string.find(s, S) != -1 ]
@@ -296,11 +296,11 @@ List comprehensions have the form::
                 for exprN in sequenceN
                 if condition ]
 
-The :keyword:`!for`...\ :keyword:`!in` clauses contain the sequences to be
+The :keyword:`for`...\ :keyword:`in` clauses contain the sequences to be
 iterated over.  The sequences do not have to be the same length, because they
 are *not* iterated over in parallel, but from left to right; this is explained
 more clearly in the following paragraphs.  The elements of the generated list
-will be the successive values of *expression*.  The final :keyword:`!if` clause
+will be the successive values of *expression*.  The final :keyword:`if` clause
 is optional; if present, *expression* is only evaluated and added to the result
 if *condition* is true.
 
@@ -316,7 +316,7 @@ following Python code::
                      # the expression to the
                      # resulting list.
 
-This means that when there are multiple :keyword:`!for`...\ :keyword:`!in`
+This means that when there are multiple :keyword:`for`...\ :keyword:`in`
 clauses, the resulting list will be equal to the product of the lengths of all
 the sequences.  If you have two lists of length 3, the output list is 9 elements
 long::
@@ -515,11 +515,11 @@ functions::
        # kw is a dictionary of keyword args
        ...
 
-The ``print`` statement can now have its output directed to a file-like
-object by following the ``print`` with  ``>> file``, similar to the
+The :keyword:`print` statement can now have its output directed to a file-like
+object by following the :keyword:`print` with  ``>> file``, similar to the
 redirection operator in Unix shells. Previously you'd either have to use the
 :meth:`write` method of the file-like object, which lacks the convenience and
-simplicity of ``print``, or you could assign a new value to
+simplicity of :keyword:`print`, or you could assign a new value to
 ``sys.stdout`` and then restore the old value.  For sending output to standard
 error, it's much easier to write this::
 
@@ -541,8 +541,8 @@ true if *obj* is present in the sequence *seq*; Python computes this by simply
 trying every index of the sequence until either *obj* is found or an
 :exc:`IndexError` is encountered.  Moshe Zadka contributed a patch which adds a
 :meth:`__contains__` magic method for providing a custom implementation for
-:keyword:`!in`. Additionally, new built-in objects written in C can define what
-:keyword:`!in` means for them via a new slot in the sequence protocol.
+:keyword:`in`. Additionally, new built-in objects written in C can define what
+:keyword:`in` means for them via a new slot in the sequence protocol.
 
 Earlier versions of Python used a recursive algorithm for deleting objects.
 Deeply nested data structures could cause the interpreter to fill up the C stack
@@ -581,7 +581,7 @@ Consult the README in the Python source distribution for more instructions.
 An attempt has been made to alleviate one of Python's warts, the often-confusing
 :exc:`NameError` exception when code refers to a local variable before the
 variable has been assigned a value.  For example, the following code raises an
-exception on the ``print`` statement in both 1.5.2 and 2.0; in 1.5.2 a
+exception on the :keyword:`print` statement in both 1.5.2 and 2.0; in 1.5.2 a
 :exc:`NameError` exception is raised, while 2.0 raises a new
 :exc:`UnboundLocalError` exception. :exc:`UnboundLocalError` is a subclass of
 :exc:`NameError`, so any existing code that expects :exc:`NameError` to be
@@ -1139,7 +1139,7 @@ module.
   Unix, not to be confused with :program:`gzip`\ -format files (which are
   supported by the :mod:`gzip` module) (Contributed by James C. Ahlstrom.)
 
-* :mod:`imputil`: A module that provides a simpler way for writing customized
+* :mod:`imputil`: A module that provides a simpler way for writing customised
   import hooks, in comparison to the existing :mod:`ihooks` module.  (Implemented
   by Greg Stein, with much discussion on python-dev along the way.)
 

@@ -1,7 +1,7 @@
 
 /* List a node on a file */
 
-#include "Python.h"
+#include "pgenheaders.h"
 #include "token.h"
 #include "node.h"
 
@@ -28,7 +28,7 @@ listnode(FILE *fp, node *n)
 static void
 list1node(FILE *fp, node *n)
 {
-    if (n == NULL)
+    if (n == 0)
         return;
     if (ISNONTERMINAL(TYPE(n))) {
         int i;

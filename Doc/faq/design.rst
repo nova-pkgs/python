@@ -48,45 +48,56 @@ Why am I getting strange results with simple arithmetic operations?
 See the next question.
 
 
-Why are floating-point calculations so inaccurate?
+Why are floating point calculations so inaccurate?
 --------------------------------------------------
 
-Users are often surprised by results like this::
+People are often very surprised by results like this::
 
-    >>> 1.2 - 1.0
-    0.19999999999999996
+   >>> 1.2 - 1.0
+   0.19999999999999996
 
-and think it is a bug in Python.  It's not.  This has little to do with Python,
-and much more to do with how the underlying platform handles floating-point
-numbers.
+and think it is a bug in Python. It's not.  This has nothing to do with Python,
+but with how the underlying C platform handles floating point numbers, and
+ultimately with the inaccuracies introduced when writing down numbers as a
+string of a fixed number of digits.
 
-The :class:`float` type in CPython uses a C ``double`` for storage.  A
-:class:`float` object's value is stored in binary floating-point with a fixed
-precision (typically 53 bits) and Python uses C operations, which in turn rely
-on the hardware implementation in the processor, to perform floating-point
-operations. This means that as far as floating-point operations are concerned,
-Python behaves like many popular languages including C and Java.
+The internal representation of floating point numbers uses a fixed number of
+binary digits to represent a decimal number.  Some decimal numbers can't be
+represented exactly in binary, resulting in small roundoff errors.
 
-Many numbers that can be written easily in decimal notation cannot be expressed
-exactly in binary floating-point.  For example, after::
+In decimal math, there are many numbers that can't be represented with a fixed
+number of decimal digits, e.g.  1/3 = 0.3333333333.......
 
-    >>> x = 1.2
+In base 2, 1/2 = 0.1, 1/4 = 0.01, 1/8 = 0.001, etc.  .2 equals 2/10 equals 1/5,
+resulting in the binary fractional number 0.001100110011001...
 
-the value stored for ``x`` is a (very good) approximation to the decimal value
-``1.2``, but is not exactly equal to it.  On a typical machine, the actual
-stored value is::
+Floating point numbers only have 32 or 64 bits of precision, so the digits are
+cut off at some point, and the resulting number is 0.199999999999999996 in
+decimal, not 0.2.
 
-    1.0011001100110011001100110011001100110011001100110011 (binary)
+A floating point number's ``repr()`` function prints as many digits are
+necessary to make ``eval(repr(f)) == f`` true for any float f.  The ``str()``
+function prints fewer digits and this often results in the more sensible number
+that was probably intended::
 
-which is exactly::
+   >>> 1.1 - 0.9
+   0.20000000000000007
+   >>> print 1.1 - 0.9
+   0.2
 
-    1.1999999999999999555910790149937383830547332763671875 (decimal)
+One of the consequences of this is that it is error-prone to compare the result
+of some computation to a float with ``==``. Tiny inaccuracies may mean that
+``==`` fails.  Instead, you have to check that the difference between the two
+numbers is less than a certain threshold::
 
-The typical precision of 53 bits provides Python floats with 15--16
-decimal digits of accuracy.
+   epsilon = 0.0000000000001  # Tiny allowed error
+   expected_result = 0.4
 
-For a fuller explanation, please see the :ref:`floating point arithmetic
-<tut-fp-issues>` chapter in the Python tutorial.
+   if expected_result-epsilon <= computation() <= expected_result+epsilon:
+       ...
+
+Please see the chapter on :ref:`floating point arithmetic <tut-fp-issues>` in
+the Python tutorial for more information.
 
 
 Why are Python strings immutable?
@@ -149,15 +160,66 @@ to tell Python which namespace to use.
 Why can't I use an assignment in an expression?
 -----------------------------------------------
 
-Starting in Python 3.8, you can!
+Many people used to C or Perl complain that they want to use this C idiom:
 
-Assignment expressions using the walrus operator `:=` assign a variable in an
-expression::
+.. code-block:: c
 
-   while chunk := fp.read(200):
-      print(chunk)
+   while (line = readline(f)) {
+       // do something with line
+   }
 
-See :pep:`572` for more information.
+where in Python you're forced to write this::
+
+   while True:
+       line = f.readline()
+       if not line:
+           break
+       ...  # do something with line
+
+The reason for not allowing assignment in Python expressions is a common,
+hard-to-find bug in those other languages, caused by this construct:
+
+.. code-block:: c
+
+    if (x = 0) {
+        // error handling
+    }
+    else {
+        // code that only works for nonzero x
+    }
+
+The error is a simple typo: ``x = 0``, which assigns 0 to the variable ``x``,
+was written while the comparison ``x == 0`` is certainly what was intended.
+
+Many alternatives have been proposed.  Most are hacks that save some typing but
+use arbitrary or cryptic syntax or keywords, and fail the simple criterion for
+language change proposals: it should intuitively suggest the proper meaning to a
+human reader who has not yet been introduced to the construct.
+
+An interesting phenomenon is that most experienced Python programmers recognize
+the ``while True`` idiom and don't seem to be missing the assignment in
+expression construct much; it's only newcomers who express a strong desire to
+add this to the language.
+
+There's an alternative way of spelling this that seems attractive but is
+generally less robust than the "while True" solution::
+
+   line = f.readline()
+   while line:
+       ...  # do something with line...
+       line = f.readline()
+
+The problem with this is that if you change your mind about exactly how you get
+the next line (e.g. you want to change it into ``sys.stdin.readline()``) you
+have to remember to change two places in your program -- the second occurrence
+is hidden at the bottom of the loop.
+
+The best approach is to use iterators, making it possible to loop through
+objects using the ``for`` statement.  For example, in the current version of
+Python file objects support the iterator protocol, so you can now write simply::
+
+   for line in f:
+       ...  # do something with line...
 
 
 
@@ -216,13 +278,26 @@ a string method, since in that case it is easy to see that ::
    "1, 2, 4, 8, 16".split(", ")
 
 is an instruction to a string literal to return the substrings delimited by the
-given separator (or, by default, arbitrary runs of white space).
+given separator (or, by default, arbitrary runs of white space).  In this case a
+Unicode string returns a list of Unicode strings, an ASCII string returns a list
+of ASCII strings, and everyone is happy.
 
 :meth:`~str.join` is a string method because in using it you are telling the
 separator string to iterate over a sequence of strings and insert itself between
 adjacent elements.  This method can be used with any argument which obeys the
 rules for sequence objects, including any new classes you might define yourself.
-Similar methods exist for bytes and bytearray objects.
+
+Because this is a string method it can work for Unicode strings as well as plain
+ASCII strings.  If ``join()`` were a method of the sequence types then the
+sequence types would have to decide which type of string to return depending on
+the type of the separator.
+
+.. XXX remove next paragraph eventually
+
+If none of these arguments persuade you, then for the moment you can continue to
+use the ``join()`` function from the string module, which allows you to write ::
+
+   string.join(['1', '2', '4', '8', '16'], ", ")
 
 
 How fast are exceptions?
@@ -246,9 +321,10 @@ time.  If that wasn't the case, you coded it like this::
    else:
        value = mydict[key] = getvalue(key)
 
-For this specific case, you could also use ``value = dict.setdefault(key,
-getvalue(key))``, but only if the ``getvalue()`` call is cheap enough because it
-is evaluated in all cases.
+.. note::
+
+   In Python 2.0 and higher, you can code this as ``value =
+   mydict.setdefault(key, getvalue(key))``.
 
 
 Why isn't there a switch or case statement in Python?
@@ -298,7 +374,7 @@ each Python stack frame.  Also, extensions can call back into Python at almost
 random moments.  Therefore, a complete threads implementation requires thread
 support for C.
 
-Answer 2: Fortunately, there is `Stackless Python <https://github.com/stackless-dev/stackless/wiki>`_,
+Answer 2: Fortunately, there is `Stackless Python <http://www.stackless.com>`_,
 which has a completely redesigned interpreter loop that avoids the C stack.
 
 
@@ -332,59 +408,67 @@ How does Python manage memory?
 ------------------------------
 
 The details of Python memory management depend on the implementation.  The
-standard implementation of Python, :term:`CPython`, uses reference counting to
-detect inaccessible objects, and another mechanism to collect reference cycles,
+standard C implementation of Python uses reference counting to detect
+inaccessible objects, and another mechanism to collect reference cycles,
 periodically executing a cycle detection algorithm which looks for inaccessible
 cycles and deletes the objects involved. The :mod:`gc` module provides functions
 to perform a garbage collection, obtain debugging statistics, and tune the
 collector's parameters.
 
-Other implementations (such as `Jython <http://www.jython.org>`_ or
-`PyPy <http://www.pypy.org>`_), however, can rely on a different mechanism
-such as a full-blown garbage collector.  This difference can cause some
-subtle porting problems if your Python code depends on the behavior of the
-reference counting implementation.
+Jython relies on the Java runtime so the JVM's garbage collector is used.  This
+difference can cause some subtle porting problems if your Python code depends on
+the behavior of the reference counting implementation.
 
-In some Python implementations, the following code (which is fine in CPython)
-will probably run out of file descriptors::
+.. XXX relevant for Python 2.6?
+
+Sometimes objects get stuck in tracebacks temporarily and hence are not
+deallocated when you might expect.  Clear the tracebacks with::
+
+   import sys
+   sys.exc_clear()
+   sys.exc_traceback = sys.last_traceback = None
+
+Tracebacks are used for reporting errors, implementing debuggers and related
+things.  They contain a portion of the program state extracted during the
+handling of an exception (usually the most recent exception).
+
+In the absence of circularities and tracebacks, Python programs do not need to
+manage memory explicitly.
+
+Why doesn't Python use a more traditional garbage collection scheme?  For one
+thing, this is not a C standard feature and hence it's not portable.  (Yes, we
+know about the Boehm GC library.  It has bits of assembler code for *most*
+common platforms, not for all of them, and although it is mostly transparent, it
+isn't completely transparent; patches are required to get Python to work with
+it.)
+
+Traditional GC also becomes a problem when Python is embedded into other
+applications.  While in a standalone Python it's fine to replace the standard
+malloc() and free() with versions provided by the GC library, an application
+embedding Python may want to have its *own* substitute for malloc() and free(),
+and may not want Python's.  Right now, Python works with anything that
+implements malloc() and free() properly.
+
+In Jython, the following code (which is fine in CPython) will probably run out
+of file descriptors long before it runs out of memory::
 
    for file in very_long_list_of_files:
        f = open(file)
        c = f.read(1)
 
-Indeed, using CPython's reference counting and destructor scheme, each new
-assignment to *f* closes the previous file.  With a traditional GC, however,
-those file objects will only get collected (and closed) at varying and possibly
-long intervals.
-
-If you want to write code that will work with any Python implementation,
-you should explicitly close the file or use the :keyword:`with` statement;
-this will work regardless of memory management scheme::
+Using the current reference counting and destructor scheme, each new assignment
+to f closes the previous file.  Using GC, this is not guaranteed.  If you want
+to write code that will work with any Python implementation, you should
+explicitly close the file or use the :keyword:`with` statement; this will work
+regardless of GC::
 
    for file in very_long_list_of_files:
        with open(file) as f:
            c = f.read(1)
 
 
-Why doesn't CPython use a more traditional garbage collection scheme?
----------------------------------------------------------------------
-
-For one thing, this is not a C standard feature and hence it's not portable.
-(Yes, we know about the Boehm GC library.  It has bits of assembler code for
-*most* common platforms, not for all of them, and although it is mostly
-transparent, it isn't completely transparent; patches are required to get
-Python to work with it.)
-
-Traditional GC also becomes a problem when Python is embedded into other
-applications.  While in a standalone Python it's fine to replace the standard
-malloc() and free() with versions provided by the GC library, an application
-embedding Python may want to have its *own* substitute for malloc() and free(),
-and may not want Python's.  Right now, CPython works with anything that
-implements malloc() and free() properly.
-
-
-Why isn't all memory freed when CPython exits?
-----------------------------------------------
+Why isn't all memory freed when Python exits?
+---------------------------------------------
 
 Objects referenced from the global namespaces of Python modules are not always
 deallocated when Python exits.  This may happen if there are circular
@@ -445,12 +529,14 @@ far) under most circumstances, and the implementation is simpler.
 
 Dictionaries work by computing a hash code for each key stored in the dictionary
 using the :func:`hash` built-in function.  The hash code varies widely depending
-on the key and a per-process seed; for example, "Python" could hash to
--539294296 while "python", a string that differs by a single bit, could hash
-to 1142331976.  The hash code is then used to calculate a location in an
-internal array where the value will be stored.  Assuming that you're storing
-keys that all have different hash values, this means that dictionaries take
-constant time -- O(1), in Big-O notation -- to retrieve a key.
+on the key; for example, "Python" hashes to -539294296 while "python", a string
+that differs by a single bit, hashes to 1142331976.  The hash code is then used
+to calculate a location in an internal array where the value will be stored.
+Assuming that you're storing keys that all have different hash values, this
+means that dictionaries take constant time -- O(1), in computer science notation
+-- to retrieve a key.  It also means that no sorted order of the keys is
+maintained, and traversing the array as the ``.keys()`` and ``.items()`` do will
+output the dictionary's content in some arbitrary jumbled order.
 
 
 Why must dictionary keys be immutable?
@@ -475,9 +561,9 @@ Some unacceptable solutions that have been proposed:
   construct a new list with the same value it won't be found; e.g.::
 
      mydict = {[1, 2]: '12'}
-     print(mydict[[1, 2]])
+     print mydict[[1, 2]]
 
-  would raise a :exc:`KeyError` exception because the id of the ``[1, 2]`` used in the
+  would raise a KeyError exception because the id of the ``[1, 2]`` used in the
   second line differs from that in the first line.  In other words, dictionary
   keys should be compared using ``==``, not using :keyword:`is`.
 
@@ -544,10 +630,10 @@ order to remind you of that fact, it does not return the sorted list.  This way,
 you won't be fooled into accidentally overwriting a list when you need a sorted
 copy but also need to keep the unsorted version around.
 
-If you want to return a new list, use the built-in :func:`sorted` function
-instead.  This function creates a new list from a provided iterable, sorts
-it and returns it.  For example, here's how to iterate over the keys of a
-dictionary in sorted order::
+In Python 2.4 a new built-in function -- :func:`sorted` -- has been added.
+This function creates a new list from a provided iterable, sorts it and returns
+it.  For example, here's how to iterate over the keys of a dictionary in sorted
+order::
 
    for key in sorted(mydict):
        ...  # do whatever with mydict[key]...
@@ -564,9 +650,9 @@ construction of large programs.
 Python 2.6 adds an :mod:`abc` module that lets you define Abstract Base Classes
 (ABCs).  You can then use :func:`isinstance` and :func:`issubclass` to check
 whether an instance or a class implements a particular ABC.  The
-:mod:`collections.abc` module defines a set of useful ABCs such as
-:class:`~collections.abc.Iterable`, :class:`~collections.abc.Container`, and
-:class:`~collections.abc.MutableMapping`.
+:mod:`collections` module defines a set of useful ABCs such as
+:class:`~collections.Iterable`, :class:`~collections.Container`, and
+:class:`~collections.MutableMapping`.
 
 For Python, many of the advantages of interface specifications can be obtained
 by an appropriate test discipline for components.  There is also a tool,
@@ -603,7 +689,7 @@ function calls.  Many feel that exceptions can conveniently emulate all
 reasonable uses of the "go" or "goto" constructs of C, Fortran, and other
 languages.  For example::
 
-   class label(Exception): pass  # declare a label
+   class label: pass  # declare a label
 
    try:
        ...
@@ -671,7 +757,7 @@ For instance, take the following incomplete snippet::
 
    def foo(a):
        with a:
-           print(x)
+           print x
 
 The snippet assumes that "a" must have a member attribute called "x".  However,
 there is nothing in Python that tells the interpreter this. What should happen
@@ -705,12 +791,12 @@ The colon is required primarily to enhance readability (one of the results of
 the experimental ABC language).  Consider this::
 
    if a == b
-       print(a)
+       print a
 
 versus ::
 
    if a == b:
-       print(a)
+       print a
 
 Notice how the second one is slightly easier to read.  Notice further how a
 colon sets off the example in this FAQ answer; it's a standard usage in English.

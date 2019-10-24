@@ -2,20 +2,18 @@
 """
 This script is used to build "official" universal installers on macOS.
 
-NEW for 3.7.0:
+NEW for 3.6.8 / 2.7.16:
+- also build and use Tk 8.6 for 10.6+ installers
+NEW for 3.6.5:
 - support Intel 64-bit-only () and 32-bit-only installer builds
-- build and use internal Tcl/Tk 8.6 for 10.6+ builds
+- build and link with private Tcl/Tk 8.6 for 10.9+ builds
 - deprecate use of explicit SDK (--sdk-path=) since all but the oldest
   versions of Xcode support implicit setting of an SDK via environment
   variables (SDKROOT and friends, see the xcrun man page for more info).
   The SDK stuff was primarily needed for building universal installers
-  for 10.4; so as of 3.7.0, building installers for 10.4 is no longer
+  for 10.4; so as of 3.6.5, building installers for 10.4 is no longer
   supported with build-installer.
 - use generic "gcc" as compiler (CC env var) rather than "gcc-4.2"
-
-TODO:
-- support SDKROOT and DEVELOPER_DIR xcrun env variables
-- test with 10.5 and 10.4 and determine support status
 
 Please ensure that this script keeps working with Python 2.5, to avoid
 bootstrap issues (/usr/bin/python is Python 2.5 on OSX 10.5).  Doc builds
@@ -24,16 +22,15 @@ Sphinx and dependencies are installed into a venv using the python3's pip
 so will fetch them from PyPI if necessary.  Since python3 is now used for
 Sphinx, build-installer.py should also be converted to use python3!
 
-For 3.7.0, when building for a 10.6 or higher deployment target,
-build-installer builds and links with its own copy of Tcl/Tk 8.6.
-Otherwise, it requires an installed third-party version of
-Tcl/Tk 8.4 (for OS X 10.4 and 10.5 deployment targets), Tcl/TK 8.5
-(for 10.6 or later), or Tcl/TK 8.6 (for 10.9 or later)
-installed in /Library/Frameworks.  When installed,
+For 10.6 or greater deployment targets, build-installer builds and links
+with its own copy of Tcl/Tk 8.6 and the rest of this paragraph does not
+apply.  Otherwise, build-installer requires an installed third-party version
+of Tcl/Tk 8.4 (for OS X 10.4 and 10.5 deployment targets) or Tcl/TK 8.5
+(for 10.6 or later) installed in /Library/Frameworks.  When installed,
 the Python built by this script will attempt to dynamically link first to
 Tcl and Tk frameworks in /Library/Frameworks if available otherwise fall
 back to the ones in /System/Library/Framework.  For the build, we recommend
-installing the most recent ActiveTcl 8.6. 8.5, or 8.4 version, depending
+installing the most recent ActiveTcl 8.5 or 8.4 version, depending
 on the deployment target.  The actual version linked to depends on the
 path of /Library/Frameworks/{Tcl,Tk}.framework/Versions/Current.
 
@@ -167,7 +164,8 @@ def getTargetCompilers():
 
 CC, CXX = getTargetCompilers()
 
-PYTHON_3 = getVersionMajorMinor() >= (3, 0)
+PYTHON_2 = getVersionMajorMinor()[0] == 2
+PYTHON_3 = getVersionMajorMinor()[0] == 3
 
 USAGE = textwrap.dedent("""\
     Usage: build_python [options]
@@ -215,9 +213,9 @@ def library_recipes():
 
     result.extend([
           dict(
-              name="OpenSSL 1.1.1d",
-              url="https://www.openssl.org/source/openssl-1.1.1d.tar.gz",
-              checksum='3be209000dbc7e1b95bcdf47980a3baa',
+              name="OpenSSL 1.0.2t",
+              url="https://www.openssl.org/source/openssl-1.0.2t.tar.gz",
+              checksum='ef66581b80f06eae42f5268bc0b50c6d',
               buildrecipe=build_universal_openssl,
               configure=None,
               install=None,
@@ -556,7 +554,7 @@ def checkEnvironment():
     # Tcl/Tk, if we are not using building and using our own private copy of
     # Tcl/Tk, ensure:
     # 1. there is a user-installed framework (usually ActiveTcl) in (or linked
-    #       in) SDKROOT/Library/Frameworks.  As of Python 3.7.0, we no longer
+    #       in) SDKROOT/Library/Frameworks.  As of Python 3.6.5, we no longer
     #       enforce that the version of the user-installed framework also
     #       exists in the system-supplied Tcl/Tk frameworks.  Time to support
     #       Tcl/Tk 8.6 even if Apple does not.
@@ -612,9 +610,10 @@ def checkEnvironment():
         base_path = base_path + ':' + OLD_DEVELOPER_TOOLS
     os.environ['PATH'] = base_path
     print("Setting default PATH: %s"%(os.environ['PATH']))
-    # Ensure we have access to sphinx-build.
-    # You may have to create a link in /usr/bin for it.
-    runCommand('sphinx-build --version')
+    if PYTHON_2:
+        # Ensure we have access to sphinx-build.
+        # You may have to define SDK_TOOLS_BIN and link to it there,
+        runCommand('sphinx-build --version')
 
 def parseOptions(args=None):
     """
@@ -810,34 +809,35 @@ def build_universal_openssl(basedir, archList):
             "ppc": ["darwin-ppc-cc"],
             "ppc64": ["darwin64-ppc-cc"],
         }
-
-        # Somewhere between OpenSSL 1.1.0j and 1.1.1c, changes cause the
-        # "enable-ec_nistp_64_gcc_128" option to get compile errors when
-        # building on our 10.6 gcc-4.2 environment.  There have been other
-        # reports of projects running into this when using older compilers.
-        # So, for now, do not try to use "enable-ec_nistp_64_gcc_128" when
-        # building for 10.6.
-        if getDeptargetTuple() == (10, 6):
-            arch_opts['x86_64'].remove('enable-ec_nistp_64_gcc_128')
-
         configure_opts = [
+            "no-krb5",
             "no-idea",
             "no-mdc2",
             "no-rc5",
             "no-zlib",
+            "enable-tlsext",
+            "no-ssl2",
             "no-ssl3",
             # "enable-unit-test",
             "shared",
+            "--install_prefix=%s"%shellQuote(archbase),
             "--prefix=%s"%os.path.join("/", *FW_VERSION_PREFIX),
             "--openssldir=%s"%os.path.join("/", *FW_SSL_DIRECTORY),
         ]
         if no_asm:
             configure_opts.append("no-asm")
+        # OpenSSL 1.0.2o broke the Configure test for whether the compiler
+        # in use supports dependency rule generation (cc -M) with gcc-4.2
+        # used for the 10.6+ installer builds.  Patch Configure here to
+        # force use of "cc -M" rather than "makedepend".
+        runCommand(
+            """sed -i "" 's|my $cc_as_makedepend = 0|my $cc_as_makedepend = 1|g' Configure""")
+
         runCommand(" ".join(["perl", "Configure"]
                         + arch_opts[arch] + configure_opts))
         runCommand("make depend")
         runCommand("make all")
-        runCommand("make install_sw DESTDIR=%s"%shellQuote(archbase))
+        runCommand("make install_sw")
         # runCommand("make test")
         return
 
@@ -1066,10 +1066,14 @@ def buildPythonDocs():
     curDir = os.getcwd()
     os.chdir(buildDir)
     runCommand('make clean')
-    # Create virtual environment for docs builds with blurb and sphinx
-    runCommand('make venv')
-    runCommand('venv/bin/python3 -m pip install -U Sphinx==2.0.1')
-    runCommand('make html PYTHON=venv/bin/python')
+    if PYTHON_2:
+        # Python 2 doc builds do not use blurb nor do they have a venv target.
+        # Assume sphinx-build is on our PATH, checked in checkEnvironment
+        runCommand('make html')
+    else:
+        # Create virtual environment for docs builds with blurb and sphinx
+        runCommand('make venv')
+        runCommand('make html PYTHON=venv/bin/python')
     os.chdir(curDir)
     if not os.path.exists(docdir):
         os.mkdir(docdir)
@@ -1218,8 +1222,7 @@ def buildPython():
             if ln.startswith('VERSION='):
                 VERSION=ln.split()[1]
             if ln.startswith('ABIFLAGS='):
-                ABIFLAGS=ln.split()
-                ABIFLAGS=ABIFLAGS[1] if len(ABIFLAGS) > 1 else ''
+                ABIFLAGS=ln.split()[1]
             if ln.startswith('LDVERSION='):
                 LDVERSION=ln.split()[1]
         fp.close()
@@ -1270,8 +1273,7 @@ def buildPython():
     import pprint
     if getVersionMajorMinor() >= (3, 6):
         # XXX this is extra-fragile
-        path = os.path.join(path_to_lib,
-            '_sysconfigdata_%s_darwin_darwin.py' % (ABIFLAGS,))
+        path = os.path.join(path_to_lib, '_sysconfigdata_m_darwin_darwin.py')
     else:
         path = os.path.join(path_to_lib, '_sysconfigdata.py')
     fp = open(path, 'r')

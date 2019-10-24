@@ -1,21 +1,20 @@
+
 :mod:`cgitb` --- Traceback manager for CGI scripts
 ==================================================
 
 .. module:: cgitb
    :synopsis: Configurable traceback handler for CGI scripts.
-
 .. moduleauthor:: Ka-Ping Yee <ping@lfw.org>
 .. sectionauthor:: Fred L. Drake, Jr. <fdrake@acm.org>
 
-**Source code:** :source:`Lib/cgitb.py`
+
+.. versionadded:: 2.2
 
 .. index::
    single: CGI; exceptions
    single: CGI; tracebacks
    single: exceptions; in CGI scripts
    single: tracebacks; in CGI scripts
-
---------------
 
 The :mod:`cgitb` module provides a special exception handler for Python scripts.
 (Its name is a bit misleading.  It was originally designed to display extensive
@@ -37,7 +36,7 @@ displayed in the browser and whether the report is logged to a file for later
 analysis.
 
 
-.. function:: enable(display=1, logdir=None, context=5, format="html")
+.. function:: enable([display[, logdir[, context[, format]]]])
 
    .. index:: single: excepthook() (in module sys)
 
@@ -54,25 +53,7 @@ analysis.
    value forces plain text output.  The default value is ``"html"``.
 
 
-.. function:: text(info, context=5)
-
-   This function handles the exception described by *info* (a 3-tuple containing
-   the result of :func:`sys.exc_info`), formatting its traceback as text and
-   returning the result as a string. The optional argument *context* is the
-   number of lines of context to display around the current line of source code
-   in the traceback; this defaults to ``5``.
-
-
-.. function:: html(info, context=5)
-
-   This function handles the exception described by *info* (a 3-tuple containing
-   the result of :func:`sys.exc_info`), formatting its traceback as HTML and
-   returning the result as a string. The optional argument *context* is the
-   number of lines of context to display around the current line of source code
-   in the traceback; this defaults to ``5``.
-
-
-.. function:: handler(info=None)
+.. function:: handler([info])
 
    This function handles an exception using the default settings (that is, show a
    report in the browser, but don't log to a file). This can be used when you've

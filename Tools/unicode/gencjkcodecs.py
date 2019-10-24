@@ -55,14 +55,13 @@ def getregentry():
 """)
 
 def gencodecs(prefix):
-    for loc, encodings in codecs.items():
+    for loc, encodings in codecs.iteritems():
         for enc in encodings:
             code = TEMPLATE.substitute(ENCODING=enc.upper(),
                                        encoding=enc.lower(),
                                        owner=loc)
             codecpath = os.path.join(prefix, enc + '.py')
-            with open(codecpath, 'w') as f:
-                f.write(code)
+            open(codecpath, 'w').write(code)
 
 if __name__ == '__main__':
     import sys

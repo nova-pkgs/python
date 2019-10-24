@@ -15,12 +15,13 @@ import sys
 import tempfile
 import unittest
 
-from test.support import requires, import_module, verbose, SaveSignals
+from test.support import (requires, import_module, verbose, run_unittest,
+                          SaveSignals)
+
 
 # Optionally test curses module.  This currently requires that the
 # 'curses' resource be given on the regrtest command line using the -u
 # option.  If not available, nothing after this line will be executed.
-import inspect
 requires('curses')
 
 # If either of these don't exist, skip the tests.
@@ -70,7 +71,7 @@ class TestCurses(unittest.TestCase):
         self.save_signals.save()
         if verbose:
             # just to make the test output a little more readable
-            print()
+            print('')
         self.stdscr = curses.initscr()
         curses.savetty()
 
@@ -87,10 +88,9 @@ class TestCurses(unittest.TestCase):
         win2 = curses.newwin(15,15, 5,5)
 
         for meth in [stdscr.addch, stdscr.addstr]:
-            for args in [('a',), ('a', curses.A_BOLD),
+            for args in [('a'), ('a', curses.A_BOLD),
                          (4,4, 'a'), (5,5, 'a', curses.A_BOLD)]:
-                with self.subTest(meth=meth.__qualname__, args=args):
-                    meth(*args)
+                meth(*args)
 
         for meth in [stdscr.clear, stdscr.clrtobot,
                      stdscr.clrtoeol, stdscr.cursyncup, stdscr.delch,
@@ -101,8 +101,7 @@ class TestCurses(unittest.TestCase):
                      win.noutrefresh, stdscr.redrawwin, stdscr.refresh,
                      stdscr.standout, stdscr.standend, stdscr.syncdown,
                      stdscr.syncup, stdscr.touchwin, stdscr.untouchwin]:
-            with self.subTest(meth=meth.__qualname__):
-                meth()
+            meth()
 
         stdscr.addnstr('1234', 3)
         stdscr.addnstr('1234', 3, curses.A_BOLD)
@@ -211,15 +210,6 @@ class TestCurses(unittest.TestCase):
         self.assertRaises(ValueError, stdscr.instr, -2)
         self.assertRaises(ValueError, stdscr.instr, 2, 3, -2)
 
-    def test_embedded_null_chars(self):
-        # reject embedded null bytes and characters
-        stdscr = self.stdscr
-        for arg in ['a', b'a']:
-            with self.subTest(arg=arg):
-                self.assertRaises(ValueError, stdscr.addstr, 'a\0')
-                self.assertRaises(ValueError, stdscr.addnstr, 'a\0', 1)
-                self.assertRaises(ValueError, stdscr.insstr, 'a\0')
-                self.assertRaises(ValueError, stdscr.insnstr, 'a\0', 1)
 
     def test_module_funcs(self):
         "Test module-level functions"
@@ -232,8 +222,7 @@ class TestCurses(unittest.TestCase):
                      curses.noqiflush, curses.noraw,
                      curses.reset_prog_mode, curses.termattrs,
                      curses.termname, curses.erasechar]:
-            with self.subTest(func=func.__qualname__):
-                func()
+            func()
         if hasattr(curses, 'filter'):
             curses.filter()
         if hasattr(curses, 'getsyx'):
@@ -367,72 +356,9 @@ class TestCurses(unittest.TestCase):
         curses.ungetch(1025)
         self.stdscr.getkey()
 
-    @requires_curses_func('unget_wch')
-    @unittest.skipIf(getattr(curses, 'ncurses_version', (99,)) < (5, 8),
-                     "unget_wch is broken in ncurses 5.7 and earlier")
-    def test_unget_wch(self):
-        stdscr = self.stdscr
-        encoding = stdscr.encoding
-        for ch in ('a', '\xe9', '\u20ac', '\U0010FFFF'):
-            try:
-                ch.encode(encoding)
-            except UnicodeEncodeError:
-                continue
-            try:
-                curses.unget_wch(ch)
-            except Exception as err:
-                self.fail("unget_wch(%a) failed with encoding %s: %s"
-                          % (ch, stdscr.encoding, err))
-            read = stdscr.get_wch()
-            self.assertEqual(read, ch)
-
-            code = ord(ch)
-            curses.unget_wch(code)
-            read = stdscr.get_wch()
-            self.assertEqual(read, ch)
-
     def test_issue10570(self):
         b = curses.tparm(curses.tigetstr("cup"), 5, 3)
         self.assertIs(type(b), bytes)
-
-    def test_encoding(self):
-        stdscr = self.stdscr
-        import codecs
-        encoding = stdscr.encoding
-        codecs.lookup(encoding)
-        with self.assertRaises(TypeError):
-            stdscr.encoding = 10
-        stdscr.encoding = encoding
-        with self.assertRaises(TypeError):
-            del stdscr.encoding
-
-    def test_issue21088(self):
-        stdscr = self.stdscr
-        #
-        # http://bugs.python.org/issue21088
-        #
-        # the bug:
-        # when converting curses.window.addch to Argument Clinic
-        # the first two parameters were switched.
-
-        # if someday we can represent the signature of addch
-        # we will need to rewrite this test.
-        try:
-            signature = inspect.signature(stdscr.addch)
-            self.assertFalse(signature)
-        except ValueError:
-            # not generating a signature is fine.
-            pass
-
-        # So.  No signature for addch.
-        # But Argument Clinic gave us a human-readable equivalent
-        # as the first line of the docstring.  So we parse that,
-        # and ensure that the parameters appear in the correct order.
-        # Since this is parsing output from Argument Clinic, we can
-        # be reasonably certain the generated parsing code will be
-        # correct too.
-        human_readable_signature = stdscr.addch.__doc__.split("\n")[0]
-        self.assertIn("[y, x,]", human_readable_signature)
 
     def test_issue13051(self):
         stdscr = self.stdscr
@@ -445,34 +371,6 @@ class TestCurses(unittest.TestCase):
         box._insert_printable_char('a')
 
 
-class MiscTests(unittest.TestCase):
-
-    @requires_curses_func('update_lines_cols')
-    def test_update_lines_cols(self):
-        # this doesn't actually test that LINES and COLS are updated,
-        # because we can't automate changing them. See Issue #4254 for
-        # a manual test script. We can only test that the function
-        # can be called.
-        curses.update_lines_cols()
-
-    @requires_curses_func('ncurses_version')
-    def test_ncurses_version(self):
-        v = curses.ncurses_version
-        self.assertIsInstance(v[:], tuple)
-        self.assertEqual(len(v), 3)
-        self.assertIsInstance(v[0], int)
-        self.assertIsInstance(v[1], int)
-        self.assertIsInstance(v[2], int)
-        self.assertIsInstance(v.major, int)
-        self.assertIsInstance(v.minor, int)
-        self.assertIsInstance(v.patch, int)
-        self.assertEqual(v[0], v.major)
-        self.assertEqual(v[1], v.minor)
-        self.assertEqual(v[2], v.patch)
-        self.assertGreaterEqual(v.major, 0)
-        self.assertGreaterEqual(v.minor, 0)
-        self.assertGreaterEqual(v.patch, 0)
-
 class TestAscii(unittest.TestCase):
 
     def test_controlnames(self):
@@ -481,13 +379,11 @@ class TestAscii(unittest.TestCase):
 
     def test_ctypes(self):
         def check(func, expected):
-            with self.subTest(ch=c, func=func):
-                self.assertEqual(func(i), expected)
-                self.assertEqual(func(c), expected)
+            self.assertEqual(func(i), expected)
+            self.assertEqual(func(c), expected)
 
         for i in range(256):
-            c = chr(i)
-            b = bytes([i])
+            c = b = chr(i)
             check(curses.ascii.isalnum, b.isalnum())
             check(curses.ascii.isalpha, b.isalpha())
             check(curses.ascii.isdigit, b.isdigit())
@@ -561,5 +457,9 @@ class TestAscii(unittest.TestCase):
         self.assertEqual(unctrl(ord('\xc1')), '!A')
 
 
-if __name__ == '__main__':
+def test_main():
+    run_unittest(TestCurses, TestAscii)
+
+
+if __name__ == "__main__":
     unittest.main()

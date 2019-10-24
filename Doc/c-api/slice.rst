@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _slice-objects:
 
@@ -8,8 +8,10 @@ Slice Objects
 
 .. c:var:: PyTypeObject PySlice_Type
 
-   The type object for slice objects.  This is the same as :class:`slice` in the
-   Python layer.
+   .. index:: single: SliceType (in module types)
+
+   The type object for slice objects.  This is the same as ``slice`` and
+   ``types.SliceType``.
 
 
 .. c:function:: int PySlice_Check(PyObject *ob)
@@ -26,7 +28,7 @@ Slice Objects
    the new object could not be allocated.
 
 
-.. c:function:: int PySlice_GetIndices(PyObject *slice, Py_ssize_t length, Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t *step)
+.. c:function:: int PySlice_GetIndices(PySliceObject *slice, Py_ssize_t length, Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t *step)
 
    Retrieve the start, stop and step indices from the slice object *slice*,
    assuming a sequence of length *length*. Treats indices greater than
@@ -36,14 +38,18 @@ Slice Objects
    the indices was not :const:`None` and failed to be converted to an integer,
    in which case ``-1`` is returned with an exception set).
 
-   You probably do not want to use this function.
+   You probably do not want to use this function.  If you want to use slice
+   objects in versions of Python prior to 2.3, you would probably do well to
+   incorporate the source of :c:func:`PySlice_GetIndicesEx`, suitably renamed,
+   in the source of your extension.
 
-   .. versionchanged:: 3.2
-      The parameter type for the *slice* parameter was ``PySliceObject*``
-      before.
+   .. versionchanged:: 2.5
+      This function used an :c:type:`int` type for *length* and an
+      :c:type:`int *` type for *start*, *stop*, and *step*. This might require
+      changes in your code for properly supporting 64-bit systems.
 
 
-.. c:function:: int PySlice_GetIndicesEx(PyObject *slice, Py_ssize_t length, Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t *step, Py_ssize_t *slicelength)
+.. c:function:: int PySlice_GetIndicesEx(PySliceObject *slice, Py_ssize_t length, Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t *step, Py_ssize_t *slicelength)
 
    Usable replacement for :c:func:`PySlice_GetIndices`.  Retrieve the start,
    stop, and step indices from the slice object *slice* assuming a sequence of
@@ -53,62 +59,13 @@ Slice Objects
 
    Returns ``0`` on success and ``-1`` on error with exception set.
 
-   .. note::
-      This function is considered not safe for resizable sequences.
-      Its invocation should be replaced by a combination of
-      :c:func:`PySlice_Unpack` and :c:func:`PySlice_AdjustIndices` where ::
+   .. versionadded:: 2.3
 
-         if (PySlice_GetIndicesEx(slice, length, &start, &stop, &step, &slicelength) < 0) {
-             // return error
-         }
-
-      is replaced by ::
-
-         if (PySlice_Unpack(slice, &start, &stop, &step) < 0) {
-             // return error
-         }
-         slicelength = PySlice_AdjustIndices(length, &start, &stop, step);
-
-   .. versionchanged:: 3.2
-      The parameter type for the *slice* parameter was ``PySliceObject*``
-      before.
-
-   .. versionchanged:: 3.6.1
-      If ``Py_LIMITED_API`` is not set or set to the value between ``0x03050400``
-      and ``0x03060000`` (not including) or ``0x03060100`` or higher
-      :c:func:`!PySlice_GetIndicesEx` is implemented as a macro using
-      :c:func:`!PySlice_Unpack` and :c:func:`!PySlice_AdjustIndices`.
-      Arguments *start*, *stop* and *step* are evaluated more than once.
-
-   .. deprecated:: 3.6.1
-      If ``Py_LIMITED_API`` is set to the value less than ``0x03050400`` or
-      between ``0x03060000`` and ``0x03060100`` (not including)
-      :c:func:`!PySlice_GetIndicesEx` is a deprecated function.
-
-
-.. c:function:: int PySlice_Unpack(PyObject *slice, Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t *step)
-
-   Extract the start, stop and step data members from a slice object as
-   C integers.  Silently reduce values larger than ``PY_SSIZE_T_MAX`` to
-   ``PY_SSIZE_T_MAX``, silently boost the start and stop values less than
-   ``PY_SSIZE_T_MIN`` to ``PY_SSIZE_T_MIN``, and silently boost the step
-   values less than ``-PY_SSIZE_T_MAX`` to ``-PY_SSIZE_T_MAX``.
-
-   Return ``-1`` on error, ``0`` on success.
-
-   .. versionadded:: 3.6.1
-
-
-.. c:function:: Py_ssize_t PySlice_AdjustIndices(Py_ssize_t length, Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t step)
-
-   Adjust start/end slice indices assuming a sequence of the specified length.
-   Out of bounds indices are clipped in a manner consistent with the handling
-   of normal slices.
-
-   Return the length of the slice.  Always successful.  Doesn't call Python
-   code.
-
-   .. versionadded:: 3.6.1
+   .. versionchanged:: 2.5
+      This function used an :c:type:`int` type for *length* and an
+      :c:type:`int *` type for *start*, *stop*, *step*, and *slicelength*. This
+      might require changes in your code for properly supporting 64-bit
+      systems.
 
 
 Ellipsis Object

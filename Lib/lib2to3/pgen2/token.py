@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 """Token constants (from "token.h")."""
 
@@ -62,15 +62,13 @@ OP = 52
 COMMENT = 53
 NL = 54
 RARROW = 55
-AWAIT = 56
-ASYNC = 57
-ERRORTOKEN = 58
-N_TOKENS = 59
+ERRORTOKEN = 56
+N_TOKENS = 57
 NT_OFFSET = 256
 #--end constants--
 
 tok_name = {}
-for _name, _value in list(globals().items()):
+for _name, _value in globals().items():
     if type(_value) is type(0):
         tok_name[_value] = _name
 

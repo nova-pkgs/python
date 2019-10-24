@@ -1,6 +1,36 @@
+/*****************************************************************
+  This file contains remnant Python 2.3 compatibility code that is no longer
+  strictly required.
+ *****************************************************************/
+
 #if defined (__SVR4) && defined (__sun)
 #   include <alloca.h>
 #endif
+
+#if (PY_VERSION_HEX < 0x02040000)
+#define PyDict_CheckExact(ob) (Py_TYPE(ob) == &PyDict_Type)
+#endif
+
+#if (PY_VERSION_HEX < 0x02050000)
+typedef int Py_ssize_t;
+#define PyInt_FromSsize_t PyInt_FromLong
+#define PyNumber_AsSsize_t(ob, exc) PyInt_AsLong(ob)
+#define PyIndex_Check(ob) PyInt_Check(ob)
+typedef Py_ssize_t (*readbufferproc)(PyObject *, Py_ssize_t, void **);
+typedef Py_ssize_t (*writebufferproc)(PyObject *, Py_ssize_t, void **);
+typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
+typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
+#endif
+
+#if (PY_VERSION_HEX < 0x02060000)
+#define Py_TYPE(ob) (((PyObject*)(ob))->ob_type)
+#define PyVarObject_HEAD_INIT(type, size) \
+    PyObject_HEAD_INIT(type) size,
+#define PyImport_ImportModuleNoBlock PyImport_ImportModule
+#define PyLong_FromSsize_t PyInt_FromLong
+#define Py_TPFLAGS_HAVE_NEWBUFFER 0
+#endif
+
 
 #ifndef MS_WIN32
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -9,6 +39,14 @@
 #define PARAMFLAG_FIN 0x1
 #define PARAMFLAG_FOUT 0x2
 #define PARAMFLAG_FLCID 0x4
+#endif
+
+/*
+  Backwards compatibility:
+  Python2.2 used LONG_LONG instead of PY_LONG_LONG
+*/
+#if defined(HAVE_LONG_LONG) && !defined(PY_LONG_LONG)
+#define PY_LONG_LONG LONG_LONG
 #endif
 
 typedef struct tagPyCArgObject PyCArgObject;
@@ -31,7 +69,9 @@ union value {
                 long l;
                 float f;
                 double d;
-                long long ll;
+#ifdef HAVE_LONG_LONG
+                PY_LONG_LONG ll;
+#endif
                 long double D;
 };
 
@@ -68,7 +108,7 @@ typedef struct {
     ffi_type *atypes[1];
 } CThunkObject;
 extern PyTypeObject PyCThunk_Type;
-#define CThunk_CheckExact(v)        ((v)->ob_type == &PyCThunk_Type)
+#define CThunk_CheckExact(v)        (Py_TYPE(v) == &PyCThunk_Type)
 
 typedef struct {
     /* First part identical to tagCDataObject */
@@ -121,7 +161,7 @@ extern PyTypeObject PyCSimpleType_Type;
 #define PyCSimpleTypeObject_Check(v)    PyObject_TypeCheck(v, &PyCSimpleType_Type)
 
 extern PyTypeObject PyCField_Type;
-extern struct fielddesc *_ctypes_get_fielddesc(const char *fmt);
+extern struct fielddesc *_ctypes_get_fielddesc(char *fmt);
 
 
 extern PyObject *
@@ -301,7 +341,9 @@ struct tagPyCArgObject {
         short h;
         int i;
         long l;
-        long long q;
+#ifdef HAVE_LONG_LONG
+        PY_LONG_LONG q;
+#endif
         long double D;
         double d;
         float f;
@@ -323,7 +365,7 @@ extern int
 PyCData_set(PyObject *dst, PyObject *type, SETFUNC setfunc, PyObject *value,
           Py_ssize_t index, Py_ssize_t size, char *ptr);
 
-extern void _ctypes_extend_error(PyObject *exc_class, const char *fmt, ...);
+extern void _ctypes_extend_error(PyObject *exc_class, char *fmt, ...);
 
 struct basespec {
     CDataObject *base;
@@ -341,13 +383,55 @@ extern PyObject *PyExc_ArgError;
 extern char *_ctypes_conversion_encoding;
 extern char *_ctypes_conversion_errors;
 
-#if defined(HAVE_WCHAR_H)
+/* Python 2.4 macros, which are not available in Python 2.3 */
+
+#ifndef Py_CLEAR
+#define Py_CLEAR(op)                            \
+    do {                                        \
+        if (op) {                               \
+            PyObject *tmp = (PyObject *)(op);                   \
+            (op) = NULL;                        \
+            Py_DECREF(tmp);                     \
+        }                                       \
+    } while (0)
+#endif
+
+#ifndef Py_VISIT
+/* Utility macro to help write tp_traverse functions.
+ * To use this macro, the tp_traverse function must name its arguments
+ * "visit" and "arg".  This is intended to keep tp_traverse functions
+ * looking as much alike as possible.
+ */
+#define Py_VISIT(op)                                    \
+    do {                                                \
+        if (op) {                                       \
+            int vret = visit((op), arg);                \
+            if (vret)                                   \
+                return vret;                            \
+        }                                               \
+    } while (0)
+#endif
+
+/* Python's PyUnicode_*WideChar functions are broken ... */
+#if defined(Py_USING_UNICODE) && defined(HAVE_WCHAR_H)
 #  define CTYPES_UNICODE
 #endif
 
 
-extern void _ctypes_free_closure(void *);
-extern void *_ctypes_alloc_closure(void);
+#if (PY_VERSION_HEX < 0x02040000)
+#ifdef CTYPES_UNICODE
+#  undef PyUnicode_FromWideChar
+#  define PyUnicode_FromWideChar PyUnicode_FromWideChar_fixed
+
+#  undef PyUnicode_AsWideChar
+#  define PyUnicode_AsWideChar PyUnicode_AsWideChar_fixed
+
+extern PyObject *PyUnicode_FromWideChar_fixed(const wchar_t *, Py_ssize_t);
+extern Py_ssize_t PyUnicode_AsWideChar_fixed(PyUnicodeObject *, wchar_t *, Py_ssize_t);
+#endif
+#endif
+
+extern void _ctypes_add_traceback(char *, char *, int);
 
 extern PyObject *PyCData_FromBaseObj(PyObject *type, PyObject *base, Py_ssize_t index, char *adr);
 extern char *_ctypes_alloc_format_string(const char *prefix, const char *suffix);
@@ -363,6 +447,40 @@ PyObject *_ctypes_get_errobj(int **pspace);
 #ifdef MS_WIN32
 extern PyObject *ComError;
 #endif
+
+#if PY_VERSION_HEX >= 0x020700A4
+/* Use PyCapsule for 2.7 */
+
+#define CTYPES_USING_CAPSULE
+
+#define CTYPES_CAPSULE_INSTANTIATE_DESTRUCTOR(name) \
+static void capsule_destructor_ ## name(PyObject *ptr) \
+{ \
+    void *p = PyCapsule_GetPointer(ptr, name); \
+    if (p) { \
+        PyMem_Free(p); \
+    } \
+} \
+
+#define CAPSULE_NEW(pointer, name) \
+    (PyCapsule_New(pointer, name, capsule_destructor_ ## name))
+
+#define CAPSULE_DEREFERENCE(capsule, name) \
+  (PyCapsule_GetPointer(capsule, name))
+
+#else /* PY_VERSION_HEX >= 0x020700A4 */
+/* Use CObject for 2.6 and before */
+
+#define CTYPES_CAPSULE_INSTANTIATE_DESTRUCTOR(name)
+
+#define CAPSULE_NEW(pointer, name) \
+    (PyCObject_FromVoidPtr(pointer, PyMem_Free))
+
+#define CAPSULE_DEREFERENCE(capsule, name) \
+  (PyCObject_AsVoidPtr(capsule))
+
+#endif /* PY_VERSION_HEX >= 0x020700A4 */
+
 
 /*
  Local Variables:

@@ -3,7 +3,6 @@
 
 .. module:: imaplib
    :synopsis: IMAP4 protocol client (requires sockets).
-
 .. moduleauthor:: Piers Lauder <piers@communitysolutions.com.au>
 .. sectionauthor:: Piers Lauder <piers@communitysolutions.com.au>
 .. revised by ESR, January 2000
@@ -11,12 +10,13 @@
 .. changes for IMAP4_stream by Piers Lauder <piers@communitysolutions.com.au>,
    November 2002
 
-**Source code:** :source:`Lib/imaplib.py`
 
 .. index::
    pair: IMAP4; protocol
    pair: IMAP4_SSL; protocol
    pair: IMAP4_stream; protocol
+
+**Source code:** :source:`Lib/imaplib.py`
 
 --------------
 
@@ -30,25 +30,12 @@ Three classes are provided by the :mod:`imaplib` module, :class:`IMAP4` is the
 base class:
 
 
-.. class:: IMAP4(host='', port=IMAP4_PORT)
+.. class:: IMAP4([host[, port]])
 
    This class implements the actual IMAP4 protocol.  The connection is created and
    protocol version (IMAP4 or IMAP4rev1) is determined when the instance is
    initialized. If *host* is not specified, ``''`` (the local host) is used. If
    *port* is omitted, the standard IMAP4 port (143) is used.
-
-   The :class:`IMAP4` class supports the :keyword:`with` statement.  When used
-   like this, the IMAP4 ``LOGOUT`` command is issued automatically when the
-   :keyword:`!with` statement exits.  E.g.::
-
-    >>> from imaplib import IMAP4
-    >>> with IMAP4("domain.org") as M:
-    ...     M.noop()
-    ...
-    ('OK', [b'Nothing Accomplished. d25if65hy903weo.87'])
-
-   .. versionchanged:: 3.5
-      Support for the :keyword:`with` statement was added.
 
 Three exceptions are defined as attributes of the :class:`IMAP4` class:
 
@@ -73,43 +60,17 @@ Three exceptions are defined as attributes of the :class:`IMAP4` class:
    write permission, and the mailbox will need to be re-opened to re-obtain write
    permission.
 
-
 There's also a subclass for secure connections:
 
 
-.. class:: IMAP4_SSL(host='', port=IMAP4_SSL_PORT, keyfile=None, \
-                     certfile=None, ssl_context=None)
+.. class:: IMAP4_SSL([host[, port[, keyfile[, certfile]]]])
 
    This is a subclass derived from :class:`IMAP4` that connects over an SSL
    encrypted socket (to use this class you need a socket module that was compiled
    with SSL support).  If *host* is not specified, ``''`` (the local host) is used.
-   If *port* is omitted, the standard IMAP4-over-SSL port (993) is used.
-   *ssl_context* is a :class:`ssl.SSLContext` object which allows bundling
-   SSL configuration options, certificates and private keys into a single
-   (potentially long-lived) structure.  Please read :ref:`ssl-security` for
-   best practices.
-
-   *keyfile* and *certfile* are a legacy alternative to *ssl_context* - they
-   can point to PEM-formatted private key and certificate chain files for
-   the SSL connection.  Note that the *keyfile*/*certfile* parameters are
-   mutually exclusive with *ssl_context*, a :class:`ValueError` is raised
-   if *keyfile*/*certfile* is provided along with *ssl_context*.
-
-   .. versionchanged:: 3.3
-      *ssl_context* parameter added.
-
-   .. versionchanged:: 3.4
-      The class now supports hostname check with
-      :attr:`ssl.SSLContext.check_hostname` and *Server Name Indication* (see
-      :data:`ssl.HAS_SNI`).
-
-   .. deprecated:: 3.6
-
-       *keyfile* and *certfile* are deprecated in favor of *ssl_context*.
-       Please use :meth:`ssl.SSLContext.load_cert_chain` instead, or let
-       :func:`ssl.create_default_context` select the system's trusted CA
-       certificates for you.
-
+   If *port* is omitted, the standard IMAP4-over-SSL port (993) is used.  *keyfile*
+   and *certfile* are also optional - they can contain a PEM formatted private key
+   and certificate chain file for the SSL connection.
 
 The second subclass allows for connections created by a child process:
 
@@ -118,8 +79,9 @@ The second subclass allows for connections created by a child process:
 
    This is a subclass derived from :class:`IMAP4` that connects to the
    ``stdin/stdout`` file descriptors created by passing *command* to
-   ``subprocess.Popen()``.
+   ``os.popen2()``.
 
+   .. versionadded:: 2.3
 
 The following utility functions are defined:
 
@@ -127,7 +89,7 @@ The following utility functions are defined:
 .. function:: Internaldate2tuple(datestr)
 
    Parse an IMAP4 ``INTERNALDATE`` string and return corresponding local
-   time.  The return value is a :class:`time.struct_time` tuple or
+   time.  The return value is a :class:`time.struct_time` instance or
    ``None`` if the string has wrong format.
 
 .. function:: Int2AP(num)
@@ -143,15 +105,13 @@ The following utility functions are defined:
 
 .. function:: Time2Internaldate(date_time)
 
-   Convert *date_time* to an IMAP4 ``INTERNALDATE`` representation.
-   The return value is a string in the form: ``"DD-Mmm-YYYY HH:MM:SS
-   +HHMM"`` (including double-quotes).  The *date_time* argument can
-   be a number (int or float) representing seconds since epoch (as
-   returned by :func:`time.time`), a 9-tuple representing local time
-   an instance of :class:`time.struct_time` (as returned by
-   :func:`time.localtime`), an aware instance of
-   :class:`datetime.datetime`, or a double-quoted string.  In the last
-   case, it is assumed to already be in the correct format.
+   Convert *date_time* to an IMAP4 ``INTERNALDATE`` representation.  The
+   return value is a string in the form: ``"DD-Mmm-YYYY HH:MM:SS
+   +HHMM"`` (including double-quotes).  The *date_time* argument can be a
+   number (int or float) representing seconds since epoch (as returned
+   by :func:`time.time`), a 9-tuple representing local time (as returned by
+   :func:`time.localtime`), or a double-quoted string.  In the last case, it
+   is assumed to already be in the correct format.
 
 Note that IMAP4 message numbers change as the mailbox changes; in particular,
 after an ``EXPUNGE`` command performs deletions the remaining messages are
@@ -215,14 +175,9 @@ An :class:`IMAP4` instance has the following methods:
 
       data = authobject(response)
 
-   It will be called to process server continuation responses; the *response*
-   argument it is passed will be ``bytes``.  It should return ``bytes`` *data*
-   that will be base64 encoded and sent to the server.  It should return
-   ``None`` if the client abort response ``*`` should be sent instead.
-
-   .. versionchanged:: 3.5
-      string usernames and passwords are now encoded to ``utf-8`` instead of
-      being limited to ASCII.
+   It will be called to process server continuation responses. It should return
+   ``data`` that will be encoded and sent to server. It should return ``None`` if
+   the client abort response ``*`` should be sent instead.
 
 
 .. method:: IMAP4.check()
@@ -255,15 +210,7 @@ An :class:`IMAP4` instance has the following methods:
 
    Delete the ACLs (remove any rights) set for who on mailbox.
 
-
-.. method:: IMAP4.enable(capability)
-
-   Enable *capability* (see :rfc:`5161`).  Most capabilities do not need to be
-   enabled.  Currently only the ``UTF8=ACCEPT`` capability is supported
-   (see :RFC:`6855`).
-
-   .. versionadded:: 3.5
-      The :meth:`enable` method itself, and :RFC:`6855` support.
+   .. versionadded:: 2.4
 
 
 .. method:: IMAP4.expunge()
@@ -291,17 +238,23 @@ An :class:`IMAP4` instance has the following methods:
    Retrieve the specified ``ANNOTATION``\ s for *mailbox*. The method is
    non-standard, but is supported by the ``Cyrus`` server.
 
+   .. versionadded:: 2.5
+
 
 .. method:: IMAP4.getquota(root)
 
    Get the ``quota`` *root*'s resource usage and limits. This method is part of the
    IMAP4 QUOTA extension defined in rfc2087.
 
+   .. versionadded:: 2.3
+
 
 .. method:: IMAP4.getquotaroot(mailbox)
 
    Get the list of ``quota`` ``roots`` for the named *mailbox*. This method is part
    of the IMAP4 QUOTA extension defined in rfc2087.
+
+   .. versionadded:: 2.3
 
 
 .. method:: IMAP4.list([directory[, pattern]])
@@ -322,16 +275,15 @@ An :class:`IMAP4` instance has the following methods:
    the password.  Will only work if the server ``CAPABILITY`` response includes the
    phrase ``AUTH=CRAM-MD5``.
 
+   .. versionadded:: 2.3
+
 
 .. method:: IMAP4.logout()
 
    Shutdown connection to server. Returns server ``BYE`` response.
 
-   .. versionchanged:: 3.8
-      The method no longer ignores silently arbitrary exceptions.
 
-
-.. method:: IMAP4.lsub(directory='""', pattern='*')
+.. method:: IMAP4.lsub([directory[, pattern]])
 
    List subscribed mailbox names in directory matching pattern. *directory*
    defaults to the top level directory and *pattern* defaults to match any mailbox.
@@ -342,10 +294,14 @@ An :class:`IMAP4` instance has the following methods:
 
    Show my ACLs for a mailbox (i.e. the rights that I have on mailbox).
 
+   .. versionadded:: 2.4
+
 
 .. method:: IMAP4.namespace()
 
-   Returns IMAP namespaces as defined in :rfc:`2342`.
+   Returns IMAP namespaces as defined in RFC2342.
+
+   .. versionadded:: 2.3
 
 
 .. method:: IMAP4.noop()
@@ -361,8 +317,6 @@ An :class:`IMAP4` instance has the following methods:
    :meth:`IMAP4.send`, and :meth:`IMAP4.shutdown` methods.  You may override
    this method.
 
-   .. audit-event:: imaplib.open self,host,port imaplib.IMAP4.open
-
 
 .. method:: IMAP4.partial(message_num, message_part, start, length)
 
@@ -374,6 +328,8 @@ An :class:`IMAP4` instance has the following methods:
 
    Assume authentication as *user*. Allows an authorised administrator to proxy
    into any user's mailbox.
+
+   .. versionadded:: 2.3
 
 
 .. method:: IMAP4.read(size)
@@ -408,9 +364,7 @@ An :class:`IMAP4` instance has the following methods:
    Search mailbox for matching messages.  *charset* may be ``None``, in which case
    no ``CHARSET`` will be specified in the request to the server.  The IMAP
    protocol requires that at least one criterion be specified; an exception will be
-   raised when the server returns an error.  *charset* must be ``None`` if
-   the ``UTF8=ACCEPT`` capability was enabled using the :meth:`enable`
-   command.
+   raised when the server returns an error.
 
    Example::
 
@@ -421,7 +375,7 @@ An :class:`IMAP4` instance has the following methods:
       typ, msgnums = M.search(None, '(FROM "LDJ")')
 
 
-.. method:: IMAP4.select(mailbox='INBOX', readonly=False)
+.. method:: IMAP4.select([mailbox[, readonly]])
 
    Select a mailbox. Returned data is the count of messages in *mailbox*
    (``EXISTS`` response).  The default *mailbox* is ``'INBOX'``.  If the *readonly*
@@ -431,8 +385,6 @@ An :class:`IMAP4` instance has the following methods:
 .. method:: IMAP4.send(data)
 
    Sends ``data`` to the remote server. You may override this method.
-
-   .. audit-event:: imaplib.send self,data imaplib.IMAP4.send
 
 
 .. method:: IMAP4.setacl(mailbox, who, what)
@@ -446,11 +398,15 @@ An :class:`IMAP4` instance has the following methods:
    Set ``ANNOTATION``\ s for *mailbox*. The method is non-standard, but is
    supported by the ``Cyrus`` server.
 
+   .. versionadded:: 2.5
+
 
 .. method:: IMAP4.setquota(root, limits)
 
    Set the ``quota`` *root*'s resource *limits*. This method is part of the IMAP4
    QUOTA extension defined in rfc2087.
+
+   .. versionadded:: 2.3
 
 
 .. method:: IMAP4.shutdown()
@@ -482,21 +438,6 @@ An :class:`IMAP4` instance has the following methods:
    This is an ``IMAP4rev1`` extension command.
 
 
-.. method:: IMAP4.starttls(ssl_context=None)
-
-   Send a ``STARTTLS`` command.  The *ssl_context* argument is optional
-   and should be a :class:`ssl.SSLContext` object.  This will enable
-   encryption on the IMAP connection.  Please read :ref:`ssl-security` for
-   best practices.
-
-   .. versionadded:: 3.2
-
-   .. versionchanged:: 3.4
-      The method now supports hostname check with
-      :attr:`ssl.SSLContext.check_hostname` and *Server Name Indication* (see
-      :data:`ssl.HAS_SNI`).
-
-
 .. method:: IMAP4.status(mailbox, names)
 
    Request named status conditions for *mailbox*.
@@ -515,17 +456,6 @@ An :class:`IMAP4` instance has the following methods:
          M.store(num, '+FLAGS', '\\Deleted')
       M.expunge()
 
-   .. note::
-
-      Creating flags containing ']' (for example: "[test]") violates
-      :rfc:`3501` (the IMAP protocol).  However, imaplib has historically
-      allowed creation of such tags, and popular IMAP servers, such as Gmail,
-      accept and produce such flags.  There are non-Python programs which also
-      create such tags.  Although it is an RFC violation and IMAP clients and
-      servers are supposed to be strict, imaplib nonetheless continues to allow
-      such tags to be created for backward compatibility reasons, and as of
-      Python 3.6, handles them if they are sent from the server, since this
-      improves real-world compatibility.
 
 .. method:: IMAP4.subscribe(mailbox)
 
@@ -552,6 +482,8 @@ An :class:`IMAP4` instance has the following methods:
 
    This is an ``IMAP4rev1`` extension command.
 
+   .. versionadded:: 2.4
+
 
 .. method:: IMAP4.uid(command, arg[, ...])
 
@@ -566,12 +498,19 @@ An :class:`IMAP4` instance has the following methods:
    Unsubscribe from old mailbox.
 
 
-.. method:: IMAP4.xatom(name[, ...])
+.. method:: IMAP4.xatom(name[, arg[, ...]])
 
    Allow simple extension commands notified by server in ``CAPABILITY`` response.
 
+Instances of :class:`IMAP4_SSL` have just one additional method:
+
+
+.. method:: IMAP4_SSL.ssl()
+
+   Returns SSLObject instance used for the secure connection with the server.
 
 The following attributes are defined on instances of :class:`IMAP4`:
+
 
 .. attribute:: IMAP4.PROTOCOL_VERSION
 
@@ -583,15 +522,6 @@ The following attributes are defined on instances of :class:`IMAP4`:
 
    Integer value to control debugging output.  The initialize value is taken from
    the module variable ``Debug``.  Values greater than three trace each command.
-
-
-.. attribute:: IMAP4.utf8_enabled
-
-   Boolean value that is normally ``False``, but is set to ``True`` if an
-   :meth:`enable` command is successfully issued for the ``UTF8=ACCEPT``
-   capability.
-
-   .. versionadded:: 3.5
 
 
 .. _imap4-example:
@@ -610,7 +540,7 @@ retrieves and prints all messages::
    typ, data = M.search(None, 'ALL')
    for num in data[0].split():
        typ, data = M.fetch(num, '(RFC822)')
-       print('Message %s\n%s\n' % (num, data[0][1]))
+       print 'Message %s\n%s\n' % (num, data[0][1])
    M.close()
    M.logout()
 

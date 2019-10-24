@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _typeobjects:
 
@@ -15,8 +15,10 @@ Type Objects
 
 .. c:var:: PyObject* PyType_Type
 
-   This is the type object for type objects; it is the same object as
-   :class:`type` in the Python layer.
+   .. index:: single: TypeType (in module types)
+
+   This is the type object for type objects; it is the same object as ``type`` and
+   ``types.TypeType`` in the Python layer.
 
 
 .. c:function:: int PyType_Check(PyObject *o)
@@ -30,22 +32,14 @@ Type Objects
    Return true if the object *o* is a type object, but not a subtype of the
    standard type object.  Return false in all other cases.
 
+   .. versionadded:: 2.2
+
 
 .. c:function:: unsigned int PyType_ClearCache()
 
    Clear the internal lookup cache. Return the current version tag.
 
-.. c:function:: unsigned long PyType_GetFlags(PyTypeObject* type)
-
-   Return the :c:member:`~PyTypeObject.tp_flags` member of *type*. This function is primarily
-   meant for use with `Py_LIMITED_API`; the individual flag bits are
-   guaranteed to be stable across Python releases, but access to
-   :c:member:`~PyTypeObject.tp_flags` itself is not part of the limited API.
-
-   .. versionadded:: 3.2
-
-   .. versionchanged:: 3.4
-      The return type is now ``unsigned long`` rather than ``long``.
+   .. versionadded:: 2.6
 
 
 .. c:function:: void PyType_Modified(PyTypeObject *type)
@@ -54,22 +48,28 @@ Type Objects
    subtypes.  This function must be called after any manual
    modification of the attributes or base classes of the type.
 
+   .. versionadded:: 2.6
 
-.. c:function:: int PyType_HasFeature(PyTypeObject *o, int feature)
+
+.. c:function:: int PyType_HasFeature(PyObject *o, int feature)
 
    Return true if the type object *o* sets the feature *feature*.  Type features
    are denoted by single bit flags.
 
 
-.. c:function:: int PyType_IS_GC(PyTypeObject *o)
+.. c:function:: int PyType_IS_GC(PyObject *o)
 
    Return true if the type object includes support for the cycle detector; this
    tests the type flag :const:`Py_TPFLAGS_HAVE_GC`.
+
+   .. versionadded:: 2.0
 
 
 .. c:function:: int PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
 
    Return true if *a* is a subtype of *b*.
+
+   .. versionadded:: 2.2
 
    This function only checks for actual subtypes, which means that
    :meth:`~class.__subclasscheck__` is not called on *b*.  Call
@@ -79,14 +79,17 @@ Type Objects
 
 .. c:function:: PyObject* PyType_GenericAlloc(PyTypeObject *type, Py_ssize_t nitems)
 
-   Generic handler for the :c:member:`~PyTypeObject.tp_alloc` slot of a type object.  Use
-   Python's default memory allocation mechanism to allocate a new instance and
-   initialize all its contents to *NULL*.
+   .. versionadded:: 2.2
+
+   .. versionchanged:: 2.5
+      This function used an :c:type:`int` type for *nitems*. This might require
+      changes in your code for properly supporting 64-bit systems.
+
 
 .. c:function:: PyObject* PyType_GenericNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
-   Generic handler for the :c:member:`~PyTypeObject.tp_new` slot of a type object.  Create a
-   new instance using the type's :c:member:`~PyTypeObject.tp_alloc` slot.
+   .. versionadded:: 2.2
+
 
 .. c:function:: int PyType_Ready(PyTypeObject *type)
 
@@ -95,112 +98,4 @@ Type Objects
    from a type's base class.  Return ``0`` on success, or return ``-1`` and sets an
    exception on error.
 
-.. c:function:: void* PyType_GetSlot(PyTypeObject *type, int slot)
-
-   Return the function pointer stored in the given slot. If the
-   result is *NULL*, this indicates that either the slot is *NULL*,
-   or that the function was called with invalid parameters.
-   Callers will typically cast the result pointer into the appropriate
-   function type.
-
-   See :c:member:`PyType_Slot.slot` for possible values of the *slot* argument.
-
-   An exception is raised if *type* is not a heap type.
-
-   .. versionadded:: 3.4
-
-
-Creating Heap-Allocated Types
-.............................
-
-The following functions and structs are used to create
-:ref:`heap types <heap-types>`.
-
-.. c:function:: PyObject* PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)
-
-   Creates and returns a heap type object from the *spec*
-   (:const:`Py_TPFLAGS_HEAPTYPE`).
-
-   If *bases* is a tuple, the created heap type contains all types contained
-   in it as base types.
-
-   If *bases* is *NULL*, the *Py_tp_base* slot is used instead.
-   If that also is *NULL*, the new type derives from :class:`object`.
-
-   This function calls :c:func:`PyType_Ready` on the new type.
-
-   .. versionadded:: 3.3
-
-.. c:function:: PyObject* PyType_FromSpec(PyType_Spec *spec)
-
-   Equivalent to ``PyType_FromSpecWithBases(spec, NULL)``.
-
-.. c:type:: PyType_Spec
-
-   Structure defining a type's behavior.
-
-   .. c:member:: const char* PyType_Spec.name
-
-      Name of the type, used to set :c:member:`PyTypeObject.tp_name`.
-
-   .. c:member:: int PyType_Spec.basicsize
-   .. c:member:: int PyType_Spec.itemsize
-
-      Size of the instance in bytes, used to set
-      :c:member:`PyTypeObject.tp_basicsize` and
-      :c:member:`PyTypeObject.tp_itemsize`.
-
-   .. c:member:: int PyType_Spec.flags
-
-      Type flags, used to set :c:member:`PyTypeObject.tp_flags`.
-
-      If the ``Py_TPFLAGS_HEAPTYPE`` flag is not set,
-      :c:func:`PyType_FromSpecWithBases` sets it automatically.
-
-   .. c:member:: PyType_Slot *PyType_Spec.slots
-
-      Array of :c:type:`PyType_Slot` structures.
-      Terminated by the special slot value ``{0, NULL}``.
-
-.. c:type:: PyType_Slot
-
-   Structure defining optional functionality of a type, containing a slot ID
-   and a value pointer.
-
-   .. c:member:: int PyType_Slot.slot
-
-      A slot ID.
-
-      Slot IDs are named like the field names of the structures
-      :c:type:`PyTypeObject`, :c:type:`PyNumberMethods`,
-      :c:type:`PySequenceMethods`, :c:type:`PyMappingMethods` and
-      :c:type:`PyAsyncMethods` with an added ``Py_`` prefix.
-      For example, use:
-
-      * ``Py_tp_dealloc`` to set :c:member:`PyTypeObject.tp_dealloc`
-      * ``Py_nb_add`` to set :c:member:`PyNumberMethods.nb_add`
-      * ``Py_sq_length`` to set :c:member:`PySequenceMethods.sq_length`
-
-      The following fields cannot be set using *PyType_Spec* and *PyType_Slot*:
-
-      * :c:member:`~PyTypeObject.tp_dict`
-      * :c:member:`~PyTypeObject.tp_mro`
-      * :c:member:`~PyTypeObject.tp_cache`
-      * :c:member:`~PyTypeObject.tp_subclasses`
-      * :c:member:`~PyTypeObject.tp_weaklist`
-      * :c:member:`~PyTypeObject.tp_print`
-      * :c:member:`~PyTypeObject.tp_weaklistoffset`
-      * :c:member:`~PyTypeObject.tp_dictoffset`
-      * :c:member:`~PyBufferProcs.bf_getbuffer`
-      * :c:member:`~PyBufferProcs.bf_releasebuffer`
-
-      Setting :c:data:`Py_tp_bases` may be problematic on some platforms.
-      To avoid issues, use the *bases* argument of
-      :py:func:`PyType_FromSpecWithBases` instead.
-
-   .. c:member:: void *PyType_Slot.pfunc
-
-      The desired value of the slot. In most cases, this is a pointer
-      to a function.
-
-      May not be *NULL*.
+   .. versionadded:: 2.2

@@ -4,24 +4,18 @@
 .. module:: fnmatch
    :synopsis: Unix shell style filename pattern matching.
 
-**Source code:** :source:`Lib/fnmatch.py`
 
 .. index:: single: filenames; wildcard expansion
 
 .. index:: module: re
+
+**Source code:** :source:`Lib/fnmatch.py`
 
 --------------
 
 This module provides support for Unix shell-style wildcards, which are *not* the
 same as regular expressions (which are documented in the :mod:`re` module).  The
 special characters used in shell-style wildcards are:
-
-.. index::
-   single: * (asterisk); in glob-style wildcards
-   single: ? (question mark); in glob-style wildcards
-   single: [] (square brackets); in glob-style wildcards
-   single: ! (exclamation); in glob-style wildcards
-   single: - (minus); in glob-style wildcards
 
 +------------+------------------------------------+
 | Pattern    | Meaning                            |
@@ -63,7 +57,7 @@ patterns.
 
       for file in os.listdir('.'):
           if fnmatch.fnmatch(file, '*.txt'):
-              print(file)
+              print file
 
 
 .. function:: fnmatchcase(filename, pattern)
@@ -78,6 +72,8 @@ patterns.
    Return the subset of the list of *names* that match *pattern*. It is the same as
    ``[n for n in names if fnmatch(n, pattern)]``, but implemented more efficiently.
 
+   .. versionadded:: 2.2
+
 
 .. function:: translate(pattern)
 
@@ -90,10 +86,10 @@ patterns.
       >>>
       >>> regex = fnmatch.translate('*.txt')
       >>> regex
-      '(?s:.*\\.txt)\\Z'
+      '.*\\.txt\\Z(?ms)'
       >>> reobj = re.compile(regex)
       >>> reobj.match('foobar.txt')
-      <re.Match object; span=(0, 10), match='foobar.txt'>
+      <_sre.SRE_Match object at 0x...>
 
 
 .. seealso::

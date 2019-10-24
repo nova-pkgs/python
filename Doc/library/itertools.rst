@@ -1,17 +1,18 @@
+
 :mod:`itertools` --- Functions creating iterators for efficient looping
 =======================================================================
 
 .. module:: itertools
    :synopsis: Functions creating iterators for efficient looping.
-
 .. moduleauthor:: Raymond Hettinger <python@rcn.com>
 .. sectionauthor:: Raymond Hettinger <python@rcn.com>
+
 
 .. testsetup::
 
    from itertools import *
 
---------------
+.. versionadded:: 2.3
 
 This module implements a number of :term:`iterator` building blocks inspired
 by constructs from APL, Haskell, and SML.  Each has been recast in a form
@@ -24,15 +25,15 @@ efficiently in pure Python.
 
 For instance, SML provides a tabulation tool: ``tabulate(f)`` which produces a
 sequence ``f(0), f(1), ...``.  The same effect can be achieved in Python
-by combining :func:`map` and :func:`count` to form ``map(f, count())``.
+by combining :func:`imap` and :func:`count` to form ``imap(f, count())``.
 
 These tools and their built-in counterparts also work well with the high-speed
 functions in the :mod:`operator` module.  For example, the multiplication
 operator can be mapped across two vectors to form an efficient dot-product:
-``sum(map(operator.mul, vector1, vector2))``.
+``sum(imap(operator.mul, vector1, vector2))``.
 
 
-**Infinite iterators:**
+**Infinite Iterators:**
 
 ==================  =================       =================================================               =========================================
 Iterator            Arguments               Results                                                         Example
@@ -44,24 +45,25 @@ Iterator            Arguments               Results                             
 
 **Iterators terminating on the shortest input sequence:**
 
-============================    ============================    =================================================   =============================================================
-Iterator                        Arguments                       Results                                             Example
-============================    ============================    =================================================   =============================================================
-:func:`accumulate`              p [,func]                       p0, p0+p1, p0+p1+p2, ...                            ``accumulate([1,2,3,4,5]) --> 1 3 6 10 15``
-:func:`chain`                   p, q, ...                       p0, p1, ... plast, q0, q1, ...                      ``chain('ABC', 'DEF') --> A B C D E F``
-:func:`chain.from_iterable`     iterable                        p0, p1, ... plast, q0, q1, ...                      ``chain.from_iterable(['ABC', 'DEF']) --> A B C D E F``
-:func:`compress`                data, selectors                 (d[0] if s[0]), (d[1] if s[1]), ...                 ``compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F``
-:func:`dropwhile`               pred, seq                       seq[n], seq[n+1], starting when pred fails          ``dropwhile(lambda x: x<5, [1,4,6,4,1]) --> 6 4 1``
-:func:`filterfalse`             pred, seq                       elements of seq where pred(elem) is false           ``filterfalse(lambda x: x%2, range(10)) --> 0 2 4 6 8``
-:func:`groupby`                 iterable[, key]                 sub-iterators grouped by value of key(v)
-:func:`islice`                  seq, [start,] stop [, step]     elements from seq[start:stop:step]                  ``islice('ABCDEFG', 2, None) --> C D E F G``
-:func:`starmap`                 func, seq                       func(\*seq[0]), func(\*seq[1]), ...                 ``starmap(pow, [(2,5), (3,2), (10,3)]) --> 32 9 1000``
-:func:`takewhile`               pred, seq                       seq[0], seq[1], until pred fails                    ``takewhile(lambda x: x<5, [1,4,6,4,1]) --> 1 4``
-:func:`tee`                     it, n                           it1, it2, ... itn  splits one iterator into n
-:func:`zip_longest`             p, q, ...                       (p[0], q[0]), (p[1], q[1]), ...                     ``zip_longest('ABCD', 'xy', fillvalue='-') --> Ax By C- D-``
-============================    ============================    =================================================   =============================================================
+====================    ============================    =================================================   =============================================================
+Iterator                Arguments                       Results                                             Example
+====================    ============================    =================================================   =============================================================
+:func:`chain`           p, q, ...                       p0, p1, ... plast, q0, q1, ...                      ``chain('ABC', 'DEF') --> A B C D E F``
+:func:`compress`        data, selectors                 (d[0] if s[0]), (d[1] if s[1]), ...                 ``compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F``
+:func:`dropwhile`       pred, seq                       seq[n], seq[n+1], starting when pred fails          ``dropwhile(lambda x: x<5, [1,4,6,4,1]) --> 6 4 1``
+:func:`groupby`         iterable[, keyfunc]             sub-iterators grouped by value of keyfunc(v)
+:func:`ifilter`         pred, seq                       elements of seq where pred(elem) is true            ``ifilter(lambda x: x%2, range(10)) --> 1 3 5 7 9``
+:func:`ifilterfalse`    pred, seq                       elements of seq where pred(elem) is false           ``ifilterfalse(lambda x: x%2, range(10)) --> 0 2 4 6 8``
+:func:`islice`          seq, [start,] stop [, step]     elements from seq[start:stop:step]                  ``islice('ABCDEFG', 2, None) --> C D E F G``
+:func:`imap`            func, p, q, ...                 func(p0, q0), func(p1, q1), ...                     ``imap(pow, (2,3,10), (5,2,3)) --> 32 9 1000``
+:func:`starmap`         func, seq                       func(\*seq[0]), func(\*seq[1]), ...                 ``starmap(pow, [(2,5), (3,2), (10,3)]) --> 32 9 1000``
+:func:`tee`             it, n                           it1, it2, ... itn  splits one iterator into n
+:func:`takewhile`       pred, seq                       seq[0], seq[1], until pred fails                    ``takewhile(lambda x: x<5, [1,4,6,4,1]) --> 1 4``
+:func:`izip`            p, q, ...                       (p[0], q[0]), (p[1], q[1]), ...                     ``izip('ABCD', 'xy') --> Ax By``
+:func:`izip_longest`    p, q, ...                       (p[0], q[0]), (p[1], q[1]), ...                     ``izip_longest('ABCD', 'xy', fillvalue='-') --> Ax By C- D-``
+====================    ============================    =================================================   =============================================================
 
-**Combinatoric iterators:**
+**Combinatoric generators:**
 
 ==============================================   ====================       =============================================================
 Iterator                                         Arguments                  Results
@@ -70,16 +72,11 @@ Iterator                                         Arguments                  Resu
 :func:`permutations`                             p[, r]                     r-length tuples, all possible orderings, no repeated elements
 :func:`combinations`                             p, r                       r-length tuples, in sorted order, no repeated elements
 :func:`combinations_with_replacement`            p, r                       r-length tuples, in sorted order, with repeated elements
+``product('ABCD', repeat=2)``                                               ``AA AB AC AD BA BB BC BD CA CB CC CD DA DB DC DD``
+``permutations('ABCD', 2)``                                                 ``AB AC AD BA BC BD CA CB CD DA DB DC``
+``combinations('ABCD', 2)``                                                 ``AB AC AD BC BD CD``
+``combinations_with_replacement('ABCD', 2)``                                ``AA AB AC AD BB BC BD CC CD DD``
 ==============================================   ====================       =============================================================
-
-==============================================   =============================================================
-Examples                                         Results
-==============================================   =============================================================
-``product('ABCD', repeat=2)``                    ``AA AB AC AD BA BB BC BD CA CB CC CD DA DB DC DD``
-``permutations('ABCD', 2)``                      ``AB AC AD BA BC BD CA CB CD DA DB DC``
-``combinations('ABCD', 2)``                      ``AB AC AD BC BD CD``
-``combinations_with_replacement('ABCD', 2)``      ``AA AB AC AD BB BC BD CC CD DD``
-==============================================   =============================================================
 
 
 .. _itertools-functions:
@@ -91,83 +88,6 @@ The following module functions all construct and return iterators. Some provide
 streams of infinite length, so they should only be accessed by functions or
 loops that truncate the stream.
 
-.. function:: accumulate(iterable[, func, *, initial=None])
-
-    Make an iterator that returns accumulated sums, or accumulated
-    results of other binary functions (specified via the optional
-    *func* argument).
-
-    If *func* is supplied, it should be a function
-    of two arguments. Elements of the input *iterable* may be any type
-    that can be accepted as arguments to *func*. (For example, with
-    the default operation of addition, elements may be any addable
-    type including :class:`~decimal.Decimal` or
-    :class:`~fractions.Fraction`.)
-
-    Usually, the number of elements output matches the input iterable.
-    However, if the keyword argument *initial* is provided, the
-    accumulation leads off with the *initial* value so that the output
-    has one more element than the input iterable.
-
-    Roughly equivalent to::
-
-        def accumulate(iterable, func=operator.add, *, initial=None):
-            'Return running totals'
-            # accumulate([1,2,3,4,5]) --> 1 3 6 10 15
-            # accumulate([1,2,3,4,5], initial=100) --> 100 101 103 106 110 115
-            # accumulate([1,2,3,4,5], operator.mul) --> 1 2 6 24 120
-            it = iter(iterable)
-            total = initial
-            if initial is None:
-                try:
-                    total = next(it)
-                except StopIteration:
-                    return
-            yield total
-            for element in it:
-                total = func(total, element)
-                yield total
-
-    There are a number of uses for the *func* argument.  It can be set to
-    :func:`min` for a running minimum, :func:`max` for a running maximum, or
-    :func:`operator.mul` for a running product.  Amortization tables can be
-    built by accumulating interest and applying payments.  First-order
-    `recurrence relations <https://en.wikipedia.org/wiki/Recurrence_relation>`_
-    can be modeled by supplying the initial value in the iterable and using only
-    the accumulated total in *func* argument::
-
-      >>> data = [3, 4, 6, 2, 1, 9, 0, 7, 5, 8]
-      >>> list(accumulate(data, operator.mul))     # running product
-      [3, 12, 72, 144, 144, 1296, 0, 0, 0, 0]
-      >>> list(accumulate(data, max))              # running maximum
-      [3, 4, 6, 6, 6, 9, 9, 9, 9, 9]
-
-      # Amortize a 5% loan of 1000 with 4 annual payments of 90
-      >>> cashflows = [1000, -90, -90, -90, -90]
-      >>> list(accumulate(cashflows, lambda bal, pmt: bal*1.05 + pmt))
-      [1000, 960.0, 918.0, 873.9000000000001, 827.5950000000001]
-
-      # Chaotic recurrence relation https://en.wikipedia.org/wiki/Logistic_map
-      >>> logistic_map = lambda x, _:  r * x * (1 - x)
-      >>> r = 3.8
-      >>> x0 = 0.4
-      >>> inputs = repeat(x0, 36)     # only the initial value is used
-      >>> [format(x, '.2f') for x in accumulate(inputs, logistic_map)]
-      ['0.40', '0.91', '0.30', '0.81', '0.60', '0.92', '0.29', '0.79', '0.63',
-       '0.88', '0.39', '0.90', '0.33', '0.84', '0.52', '0.95', '0.18', '0.57',
-       '0.93', '0.25', '0.71', '0.79', '0.63', '0.88', '0.39', '0.91', '0.32',
-       '0.83', '0.54', '0.95', '0.20', '0.60', '0.91', '0.30', '0.80', '0.60']
-
-    See :func:`functools.reduce` for a similar function that returns only the
-    final accumulated value.
-
-    .. versionadded:: 3.2
-
-    .. versionchanged:: 3.3
-       Added the optional *func* parameter.
-
-    .. versionchanged:: 3.8
-       Added the optional *initial* parameter.
 
 .. function:: chain(*iterables)
 
@@ -194,6 +114,8 @@ loops that truncate the stream.
               for element in it:
                   yield element
 
+   .. versionadded:: 2.6
+
 
 .. function:: combinations(iterable, r)
 
@@ -216,7 +138,7 @@ loops that truncate the stream.
             n = len(pool)
             if r > n:
                 return
-            indices = list(range(r))
+            indices = range(r)
             yield tuple(pool[i] for i in indices)
             while True:
                 for i in reversed(range(r)):
@@ -242,6 +164,8 @@ loops that truncate the stream.
 
    The number of items returned is ``n! / r! / (n-r)!`` when ``0 <= r <= n``
    or zero when ``r > n``.
+
+   .. versionadded:: 2.6
 
 .. function:: combinations_with_replacement(iterable, r)
 
@@ -288,8 +212,7 @@ loops that truncate the stream.
 
    The number of items returned is ``(n+r-1)! / r! / (n-1)!`` when ``n > 0``.
 
-   .. versionadded:: 3.1
-
+   .. versionadded:: 2.7
 
 .. function:: compress(data, selectors)
 
@@ -300,16 +223,16 @@ loops that truncate the stream.
 
        def compress(data, selectors):
            # compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F
-           return (d for d, s in zip(data, selectors) if s)
+           return (d for d, s in izip(data, selectors) if s)
 
-   .. versionadded:: 3.1
+   .. versionadded:: 2.7
 
 
 .. function:: count(start=0, step=1)
 
-   Make an iterator that returns evenly spaced values starting with number *start*. Often
-   used as an argument to :func:`map` to generate consecutive data points.
-   Also, used with :func:`zip` to add sequence numbers.  Roughly equivalent to::
+   Make an iterator that returns evenly spaced values starting with *n*. Often
+   used as an argument to :func:`imap` to generate consecutive data points.
+   Also, used with :func:`izip` to add sequence numbers.  Equivalent to::
 
       def count(start=0, step=1):
           # count(10) --> 10 11 12 13 14 ...
@@ -323,8 +246,8 @@ loops that truncate the stream.
    achieved by substituting multiplicative code such as: ``(start + step * i
    for i in count())``.
 
-   .. versionchanged:: 3.1
-      Added *step* argument and allowed non-integer arguments.
+   .. versionchanged:: 2.7
+      added *step* argument and allowed non-integer arguments.
 
 .. function:: cycle(iterable)
 
@@ -363,22 +286,8 @@ loops that truncate the stream.
           for x in iterable:
               yield x
 
-.. function:: filterfalse(predicate, iterable)
 
-   Make an iterator that filters elements from iterable returning only those for
-   which the predicate is ``False``. If *predicate* is ``None``, return the items
-   that are false. Roughly equivalent to::
-
-      def filterfalse(predicate, iterable):
-          # filterfalse(lambda x: x%2, range(10)) --> 0 2 4 6 8
-          if predicate is None:
-              predicate = bool
-          for x in iterable:
-              if not predicate(x):
-                  yield x
-
-
-.. function:: groupby(iterable, key=None)
+.. function:: groupby(iterable[, key])
 
    Make an iterator that returns consecutive keys and groups from the *iterable*.
    The *key* is a function computing a key value for each element.  If not
@@ -406,7 +315,7 @@ loops that truncate the stream.
 
    :func:`groupby` is roughly equivalent to::
 
-      class groupby:
+      class groupby(object):
           # [k for k, g in groupby('AAAABBBCCDAABBB')] --> A B C D A B
           # [list(g) for k, g in groupby('AAAABBBCCD')] --> AAAA BBB CC D
           def __init__(self, iterable, key=None):
@@ -417,21 +326,70 @@ loops that truncate the stream.
               self.tgtkey = self.currkey = self.currvalue = object()
           def __iter__(self):
               return self
-          def __next__(self):
-              self.id = object()
+          def next(self):
               while self.currkey == self.tgtkey:
                   self.currvalue = next(self.it)    # Exit on StopIteration
                   self.currkey = self.keyfunc(self.currvalue)
               self.tgtkey = self.currkey
-              return (self.currkey, self._grouper(self.tgtkey, self.id))
-          def _grouper(self, tgtkey, id):
-              while self.id is id and self.currkey == tgtkey:
+              return (self.currkey, self._grouper(self.tgtkey))
+          def _grouper(self, tgtkey):
+              while self.currkey == tgtkey:
                   yield self.currvalue
-                  try:
-                      self.currvalue = next(self.it)
-                  except StopIteration:
-                      return
+                  self.currvalue = next(self.it)    # Exit on StopIteration
                   self.currkey = self.keyfunc(self.currvalue)
+
+   .. versionadded:: 2.4
+
+
+.. function:: ifilter(predicate, iterable)
+
+   Make an iterator that filters elements from iterable returning only those for
+   which the predicate is ``True``. If *predicate* is ``None``, return the items
+   that are true. Roughly equivalent to::
+
+      def ifilter(predicate, iterable):
+          # ifilter(lambda x: x%2, range(10)) --> 1 3 5 7 9
+          if predicate is None:
+              predicate = bool
+          for x in iterable:
+              if predicate(x):
+                  yield x
+
+
+.. function:: ifilterfalse(predicate, iterable)
+
+   Make an iterator that filters elements from iterable returning only those for
+   which the predicate is ``False``. If *predicate* is ``None``, return the items
+   that are false. Roughly equivalent to::
+
+      def ifilterfalse(predicate, iterable):
+          # ifilterfalse(lambda x: x%2, range(10)) --> 0 2 4 6 8
+          if predicate is None:
+              predicate = bool
+          for x in iterable:
+              if not predicate(x):
+                  yield x
+
+
+.. function:: imap(function, *iterables)
+
+   Make an iterator that computes the function using arguments from each of the
+   iterables.  If *function* is set to ``None``, then :func:`imap` returns the
+   arguments as a tuple.  Like :func:`map` but stops when the shortest iterable is
+   exhausted instead of filling in ``None`` for shorter iterables.  The reason for
+   the difference is that infinite iterator arguments are typically an error for
+   :func:`map` (because the output is fully evaluated) but represent a common and
+   useful way of supplying arguments to :func:`imap`. Roughly equivalent to::
+
+      def imap(function, *iterables):
+          # imap(pow, (2,3,10), (5,2,3)) --> 32 9 1000
+          iterables = map(iter, iterables)
+          while True:
+              args = [next(it) for it in iterables]
+              if function is None:
+                  yield tuple(args)
+              else:
+                  yield function(*args)
 
 
 .. function:: islice(iterable, stop)
@@ -453,13 +411,13 @@ loops that truncate the stream.
           # islice('ABCDEFG', 2, None) --> C D E F G
           # islice('ABCDEFG', 0, None, 2) --> A C E G
           s = slice(*args)
-          start, stop, step = s.start or 0, s.stop or sys.maxsize, s.step or 1
-          it = iter(range(start, stop, step))
+          start, stop, step = s.start or 0, s.stop or sys.maxint, s.step or 1
+          it = iter(xrange(start, stop, step)))
           try:
               nexti = next(it)
           except StopIteration:
               # Consume *iterable* up to the *start* position.
-              for i, element in zip(range(start), iterable):
+              for i, element in izip(xrange(start), iterable):
                   pass
               return
           try:
@@ -469,14 +427,75 @@ loops that truncate the stream.
                       nexti = next(it)
           except StopIteration:
               # Consume to *stop*.
-              for i, element in zip(range(i + 1, stop), iterable):
+              for i, element in izip(xrange(i + 1, stop), iterable):
                   pass
 
    If *start* is ``None``, then iteration starts at zero. If *step* is ``None``,
    then the step defaults to one.
 
+   .. versionchanged:: 2.5
+      accept ``None`` values for default *start* and *step*.
 
-.. function:: permutations(iterable, r=None)
+
+.. function:: izip(*iterables)
+
+   Make an iterator that aggregates elements from each of the iterables. Like
+   :func:`zip` except that it returns an iterator instead of a list.  Used for
+   lock-step iteration over several iterables at a time.  Roughly equivalent to::
+
+      def izip(*iterables):
+          # izip('ABCD', 'xy') --> Ax By
+          iterators = map(iter, iterables)
+          while iterators:
+              yield tuple(map(next, iterators))
+
+   .. versionchanged:: 2.4
+      When no iterables are specified, returns a zero length iterator instead of
+      raising a :exc:`TypeError` exception.
+
+   The left-to-right evaluation order of the iterables is guaranteed. This
+   makes possible an idiom for clustering a data series into n-length groups
+   using ``izip(*[iter(s)]*n)``.
+
+   :func:`izip` should only be used with unequal length inputs when you don't
+   care about trailing, unmatched values from the longer iterables.  If those
+   values are important, use :func:`izip_longest` instead.
+
+
+.. function:: izip_longest(*iterables[, fillvalue])
+
+   Make an iterator that aggregates elements from each of the iterables. If the
+   iterables are of uneven length, missing values are filled-in with *fillvalue*.
+   Iteration continues until the longest iterable is exhausted.  Roughly equivalent to::
+
+      class ZipExhausted(Exception):
+          pass
+
+      def izip_longest(*args, **kwds):
+          # izip_longest('ABCD', 'xy', fillvalue='-') --> Ax By C- D-
+          fillvalue = kwds.get('fillvalue')
+          counter = [len(args) - 1]
+          def sentinel():
+              if not counter[0]:
+                  raise ZipExhausted
+              counter[0] -= 1
+              yield fillvalue
+          fillers = repeat(fillvalue)
+          iterators = [chain(it, sentinel(), fillers) for it in args]
+          try:
+              while iterators:
+                  yield tuple(map(next, iterators))
+          except ZipExhausted:
+              pass
+
+   If one of the iterables is potentially infinite, then the
+   :func:`izip_longest` function should be wrapped with something that limits
+   the number of calls (for example :func:`islice` or :func:`takewhile`).  If
+   not specified, *fillvalue* defaults to ``None``.
+
+   .. versionadded:: 2.6
+
+.. function:: permutations(iterable[, r])
 
    Return successive *r* length permutations of elements in the *iterable*.
 
@@ -502,8 +521,8 @@ loops that truncate the stream.
             r = n if r is None else r
             if r > n:
                 return
-            indices = list(range(n))
-            cycles = list(range(n, n-r, -1))
+            indices = range(n)
+            cycles = range(n, n-r, -1)
             yield tuple(pool[i] for i in indices[:r])
             while n:
                 for i in reversed(range(r)):
@@ -534,7 +553,9 @@ loops that truncate the stream.
    The number of items returned is ``n! / (n-r)!`` when ``0 <= r <= n``
    or zero when ``r > n``.
 
-.. function:: product(*iterables, repeat=1)
+   .. versionadded:: 2.6
+
+.. function:: product(*iterables[, repeat])
 
    Cartesian product of input iterables.
 
@@ -553,25 +574,24 @@ loops that truncate the stream.
    This function is roughly equivalent to the following code, except that the
    actual implementation does not build up intermediate results in memory::
 
-       def product(*args, repeat=1):
+       def product(*args, **kwds):
            # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
            # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-           pools = [tuple(pool) for pool in args] * repeat
+           pools = map(tuple, args) * kwds.get('repeat', 1)
            result = [[]]
            for pool in pools:
                result = [x+[y] for x in result for y in pool]
            for prod in result:
                yield tuple(prod)
 
+   .. versionadded:: 2.6
 
 .. function:: repeat(object[, times])
 
    Make an iterator that returns *object* over and over again. Runs indefinitely
-   unless the *times* argument is specified. Used as argument to :func:`map` for
-   invariant parameters to the called function.  Also used with :func:`zip` to
-   create an invariant part of a tuple record.
-
-   Roughly equivalent to::
+   unless the *times* argument is specified. Used as argument to :func:`imap` for
+   invariant function parameters.  Also used with :func:`izip` to create constant
+   fields in a tuple record.  Roughly equivalent to::
 
       def repeat(object, times=None):
           # repeat(10, 3) --> 10 10 10
@@ -579,21 +599,21 @@ loops that truncate the stream.
               while True:
                   yield object
           else:
-              for i in range(times):
+              for i in xrange(times):
                   yield object
 
-   A common use for *repeat* is to supply a stream of constant values to *map*
+   A common use for *repeat* is to supply a stream of constant values to *imap*
    or *zip*::
 
-      >>> list(map(pow, range(10), repeat(2)))
+      >>> list(imap(pow, xrange(10), repeat(2)))
       [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
 
 .. function:: starmap(function, iterable)
 
    Make an iterator that computes the function using arguments obtained from
-   the iterable.  Used instead of :func:`map` when argument parameters are already
+   the iterable.  Used instead of :func:`imap` when argument parameters are already
    grouped in tuples from a single iterable (the data has been "pre-zipped").  The
-   difference between :func:`map` and :func:`starmap` parallels the distinction
+   difference between :func:`imap` and :func:`starmap` parallels the distinction
    between ``function(a,b)`` and ``function(*c)``. Roughly equivalent to::
 
       def starmap(function, iterable):
@@ -601,6 +621,9 @@ loops that truncate the stream.
           for args in iterable:
               yield function(*args)
 
+   .. versionchanged:: 2.6
+      Previously, :func:`starmap` required the function arguments to be tuples.
+      Now, any iterable is allowed.
 
 .. function:: takewhile(predicate, iterable)
 
@@ -616,15 +639,9 @@ loops that truncate the stream.
                   break
 
 
-.. function:: tee(iterable, n=2)
+.. function:: tee(iterable[, n=2])
 
-   Return *n* independent iterators from a single iterable.
-
-   The following Python code helps explain what *tee* does (although the actual
-   implementation is more complex and uses only a single underlying
-   :abbr:`FIFO (first-in, first-out)` queue).
-
-   Roughly equivalent to::
+   Return *n* independent iterators from a single iterable.  Roughly equivalent to::
 
         def tee(iterable, n=2):
             it = iter(iterable)
@@ -632,10 +649,7 @@ loops that truncate the stream.
             def gen(mydeque):
                 while True:
                     if not mydeque:             # when the local deque is empty
-                        try:
-                            newval = next(it)   # fetch a new value and
-                        except StopIteration:
-                            return
+                        newval = next(it)       # fetch a new value and
                         for d in deques:        # load it to all the deques
                             d.append(newval)
                     yield mydeque.popleft()
@@ -654,52 +668,16 @@ loops that truncate the stream.
    most or all of the data before another iterator starts, it is faster to use
    :func:`list` instead of :func:`tee`.
 
-
-.. function:: zip_longest(*iterables, fillvalue=None)
-
-   Make an iterator that aggregates elements from each of the iterables. If the
-   iterables are of uneven length, missing values are filled-in with *fillvalue*.
-   Iteration continues until the longest iterable is exhausted.  Roughly equivalent to::
-
-      def zip_longest(*args, fillvalue=None):
-          # zip_longest('ABCD', 'xy', fillvalue='-') --> Ax By C- D-
-          iterators = [iter(it) for it in args]
-          num_active = len(iterators)
-          if not num_active:
-              return
-          while True:
-              values = []
-              for i, it in enumerate(iterators):
-                  try:
-                      value = next(it)
-                  except StopIteration:
-                      num_active -= 1
-                      if not num_active:
-                          return
-                      iterators[i] = repeat(fillvalue)
-                      value = fillvalue
-                  values.append(value)
-              yield tuple(values)
-
-   If one of the iterables is potentially infinite, then the :func:`zip_longest`
-   function should be wrapped with something that limits the number of calls
-   (for example :func:`islice` or :func:`takewhile`).  If not specified,
-   *fillvalue* defaults to ``None``.
+   .. versionadded:: 2.4
 
 
 .. _itertools-recipes:
 
-Itertools Recipes
------------------
+Recipes
+-------
 
 This section shows recipes for creating an extended toolset using the existing
 itertools as building blocks.
-
-Substantially all of these recipes and many, many others can be installed from
-the `more-itertools project <https://pypi.org/project/more-itertools/>`_ found
-on the Python Package Index::
-
-    pip install more-itertools
 
 The extended tools offer the same high performance as the underlying toolset.
 The superior memory performance is kept by processing elements one at a time
@@ -715,19 +693,9 @@ which incur interpreter overhead.
        "Return first n items of the iterable as a list"
        return list(islice(iterable, n))
 
-   def prepend(value, iterator):
-       "Prepend a single value in front of an iterator"
-       # prepend(1, [2, 3, 4]) -> 1 2 3 4
-       return chain([value], iterator)
-
    def tabulate(function, start=0):
        "Return function(0), function(1), ..."
-       return map(function, count(start))
-
-   def tail(n, iterable):
-       "Return an iterator over the last n items"
-       # tail(3, 'ABCDEFG') --> E F G
-       return iter(collections.deque(iterable, maxlen=n))
+       return imap(function, count(start))
 
    def consume(iterator, n=None):
        "Advance the iterator n-steps ahead. If n is None, consume entirely."
@@ -750,7 +718,7 @@ which incur interpreter overhead.
 
    def quantify(iterable, pred=bool):
        "Count how many times the predicate is true"
-       return sum(map(pred, iterable))
+       return sum(imap(pred, iterable))
 
    def padnone(iterable):
        """Returns the sequence elements and then returns None indefinitely.
@@ -764,7 +732,7 @@ which incur interpreter overhead.
        return chain.from_iterable(repeat(tuple(iterable), n))
 
    def dotproduct(vec1, vec2):
-       return sum(map(operator.mul, vec1, vec2))
+       return sum(imap(operator.mul, vec1, vec2))
 
    def flatten(listOfLists):
        "Flatten one level of nesting"
@@ -783,33 +751,26 @@ which incur interpreter overhead.
        "s -> (s0,s1), (s1,s2), (s2, s3), ..."
        a, b = tee(iterable)
        next(b, None)
-       return zip(a, b)
+       return izip(a, b)
 
    def grouper(iterable, n, fillvalue=None):
        "Collect data into fixed-length chunks or blocks"
-       # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+       # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
        args = [iter(iterable)] * n
-       return zip_longest(*args, fillvalue=fillvalue)
+       return izip_longest(fillvalue=fillvalue, *args)
 
    def roundrobin(*iterables):
        "roundrobin('ABC', 'D', 'EF') --> A D E B F C"
        # Recipe credited to George Sakkis
-       num_active = len(iterables)
-       nexts = cycle(iter(it).__next__ for it in iterables)
-       while num_active:
+       pending = len(iterables)
+       nexts = cycle(iter(it).next for it in iterables)
+       while pending:
            try:
                for next in nexts:
                    yield next()
            except StopIteration:
-               # Remove the iterator we just exhausted from the cycle.
-               num_active -= 1
-               nexts = cycle(islice(nexts, num_active))
-
-   def partition(pred, iterable):
-       'Use a predicate to partition entries into false entries and true entries'
-       # partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9
-       t1, t2 = tee(iterable)
-       return filterfalse(pred, t1), filter(pred, t2)
+               pending -= 1
+               nexts = cycle(islice(nexts, pending))
 
    def powerset(iterable):
        "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
@@ -823,7 +784,7 @@ which incur interpreter overhead.
        seen = set()
        seen_add = seen.add
        if key is None:
-           for element in filterfalse(seen.__contains__, iterable):
+           for element in ifilterfalse(seen.__contains__, iterable):
                seen_add(element)
                yield element
        else:
@@ -837,47 +798,35 @@ which incur interpreter overhead.
        "List unique elements, preserving order. Remember only the element just seen."
        # unique_justseen('AAAABBBCCDAABBB') --> A B C D A B
        # unique_justseen('ABBCcAD', str.lower) --> A B C A D
-       return map(next, map(operator.itemgetter(1), groupby(iterable, key)))
+       return imap(next, imap(itemgetter(1), groupby(iterable, key)))
 
    def iter_except(func, exception, first=None):
        """ Call a function repeatedly until an exception is raised.
 
        Converts a call-until-exception interface to an iterator interface.
-       Like builtins.iter(func, sentinel) but uses an exception instead
+       Like __builtin__.iter(func, sentinel) but uses an exception instead
        of a sentinel to end the loop.
 
        Examples:
-           iter_except(functools.partial(heappop, h), IndexError)   # priority queue iterator
-           iter_except(d.popitem, KeyError)                         # non-blocking dict iterator
-           iter_except(d.popleft, IndexError)                       # non-blocking deque iterator
-           iter_except(q.get_nowait, Queue.Empty)                   # loop over a producer Queue
-           iter_except(s.pop, KeyError)                             # non-blocking set iterator
+           bsddbiter = iter_except(db.next, bsddb.error, db.first)
+           heapiter = iter_except(functools.partial(heappop, h), IndexError)
+           dictiter = iter_except(d.popitem, KeyError)
+           dequeiter = iter_except(d.popleft, IndexError)
+           queueiter = iter_except(q.get_nowait, Queue.Empty)
+           setiter = iter_except(s.pop, KeyError)
 
        """
        try:
            if first is not None:
-               yield first()            # For database APIs needing an initial cast to db.first()
-           while True:
+               yield first()
+           while 1:
                yield func()
        except exception:
            pass
 
-   def first_true(iterable, default=False, pred=None):
-       """Returns the first true value in the iterable.
-
-       If no true value is found, returns *default*
-
-       If *pred* is not None, returns the first item
-       for which pred(item) is true.
-
-       """
-       # first_true([a,b,c], x) --> a or b or c or x
-       # first_true([a,b], x, f) --> a if f(a) else b if f(b) else x
-       return next(filter(pred, iterable), default)
-
-   def random_product(*args, repeat=1):
+   def random_product(*args, **kwds):
        "Random selection from itertools.product(*args, **kwds)"
-       pools = [tuple(pool) for pool in args] * repeat
+       pools = map(tuple, args) * kwds.get('repeat', 1)
        return tuple(random.choice(pool) for pool in pools)
 
    def random_permutation(iterable, r=None):
@@ -890,36 +839,31 @@ which incur interpreter overhead.
        "Random selection from itertools.combinations(iterable, r)"
        pool = tuple(iterable)
        n = len(pool)
-       indices = sorted(random.sample(range(n), r))
+       indices = sorted(random.sample(xrange(n), r))
        return tuple(pool[i] for i in indices)
 
    def random_combination_with_replacement(iterable, r):
        "Random selection from itertools.combinations_with_replacement(iterable, r)"
        pool = tuple(iterable)
        n = len(pool)
-       indices = sorted(random.randrange(n) for i in range(r))
+       indices = sorted(random.randrange(n) for i in xrange(r))
        return tuple(pool[i] for i in indices)
 
-   def nth_combination(iterable, r, index):
-       'Equivalent to list(combinations(iterable, r))[index]'
-       pool = tuple(iterable)
-       n = len(pool)
-       if r < 0 or r > n:
-           raise ValueError
-       c = 1
-       k = min(r, n-r)
-       for i in range(1, k+1):
-           c = c * (n - k + i) // i
-       if index < 0:
-           index += c
-       if index < 0 or index >= c:
-           raise IndexError
-       result = []
-       while r:
-           c, n, r = c*r//n, n-1, r-1
-           while index >= c:
-               index -= c
-               c, n = c*(n-r)//n, n-1
-           result.append(pool[-1-n])
-       return tuple(result)
+   def tee_lookahead(t, i):
+       """Inspect the i-th upcomping value from a tee object
+          while leaving the tee object at its current position.
 
+          Raise an IndexError if the underlying iterator doesn't
+          have enough values.
+
+       """
+       for value in islice(t.__copy__(), i, None):
+           return value
+       raise IndexError(i)
+
+Note, many of the above recipes can be optimized by replacing global lookups
+with local variables defined as default values.  For example, the
+*dotproduct* recipe can be written as::
+
+   def dotproduct(vec1, vec2, sum=sum, imap=imap, mul=operator.mul):
+       return sum(imap(mul, vec1, vec2))

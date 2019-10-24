@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 
 .. _api-intro:
@@ -17,27 +17,17 @@ common use.  The second reason is to use Python as a component in a larger
 application; this technique is generally referred to as :dfn:`embedding` Python
 in an application.
 
-Writing an extension module is a relatively well-understood process, where a
-"cookbook" approach works well.  There are several tools that automate the
-process to some extent.  While people have embedded Python in other
-applications since its early existence, the process of embedding Python is
-less straightforward than writing an extension.
+Writing an extension module is a relatively well-understood process,  where a
+"cookbook" approach works well.  There are several tools  that automate the
+process to some extent.  While people have embedded  Python in other
+applications since its early existence, the process of  embedding Python is less
+straightforward than writing an extension.
 
 Many API functions are useful independent of whether you're embedding  or
 extending Python; moreover, most applications that embed Python  will need to
 provide a custom extension as well, so it's probably a  good idea to become
 familiar with writing an extension before  attempting to embed Python in a real
 application.
-
-
-Coding standards
-================
-
-If you're writing C code for inclusion in CPython, you **must** follow the
-guidelines and standards defined in :PEP:`7`.  These guidelines apply
-regardless of the version of Python you are contributing to.  Following these
-conventions is not necessary for your own third party extension modules,
-unless you eventually expect to contribute them to Python.
 
 
 .. _api-includes:
@@ -48,8 +38,7 @@ Include Files
 All function, type and macro definitions needed to use the Python/C API are
 included in your code by the following line::
 
-   #define PY_SSIZE_T_CLEAN
-   #include <Python.h>
+   #include "Python.h"
 
 This implies inclusion of the following standard headers: ``<stdio.h>``,
 ``<string.h>``, ``<errno.h>``, ``<limits.h>``, ``<assert.h>`` and ``<stdlib.h>``
@@ -61,29 +50,23 @@ This implies inclusion of the following standard headers: ``<stdio.h>``,
    headers on some systems, you *must* include :file:`Python.h` before any standard
    headers are included.
 
-   It is recommended to always define ``PY_SSIZE_T_CLEAN`` before including
-   ``Python.h``.  See :ref:`arg-parsing` for a description of this macro.
-
 All user visible names defined by Python.h (except those defined by the included
 standard headers) have one of the prefixes ``Py`` or ``_Py``.  Names beginning
 with ``_Py`` are for internal use by the Python implementation and should not be
 used by extension writers. Structure member names do not have a reserved prefix.
 
-.. note::
-
-   User code should never define names that begin with ``Py`` or ``_Py``. This
-   confuses the reader, and jeopardizes the portability of the user code to
-   future Python versions, which may define additional names beginning with one
-   of these prefixes.
+**Important:** user code should never define names that begin with ``Py`` or
+``_Py``.  This confuses the reader, and jeopardizes the portability of the user
+code to future Python versions, which may define additional names beginning with
+one of these prefixes.
 
 The header files are typically installed with Python.  On Unix, these  are
 located in the directories :file:`{prefix}/include/pythonversion/` and
 :file:`{exec_prefix}/include/pythonversion/`, where :envvar:`prefix` and
 :envvar:`exec_prefix` are defined by the corresponding parameters to Python's
-:program:`configure` script and *version* is
-``'%d.%d' % sys.version_info[:2]``.  On Windows, the headers are installed
-in :file:`{prefix}/include`, where :envvar:`prefix` is the installation
-directory specified to the installer.
+:program:`configure` script and *version* is ``sys.version[:3]``.  On Windows,
+the headers are installed in :file:`{prefix}/include`, where :envvar:`prefix` is
+the installation directory specified to the installer.
 
 To include the headers, place both directories (if different) on your compiler's
 search path for includes.  Do *not* place the parent directories on the search
@@ -92,87 +75,9 @@ multi-platform builds since the platform independent headers under
 :envvar:`prefix` include the platform specific headers from
 :envvar:`exec_prefix`.
 
-C++ users should note that although the API is defined entirely using C, the
-header files properly declare the entry points to be ``extern "C"``. As a result,
-there is no need to do anything special to use the API from C++.
-
-
-Useful macros
-=============
-
-Several useful macros are defined in the Python header files.  Many are
-defined closer to where they are useful (e.g. :c:macro:`Py_RETURN_NONE`).
-Others of a more general utility are defined here.  This is not necessarily a
-complete listing.
-
-.. c:macro:: Py_UNREACHABLE()
-
-   Use this when you have a code path that you do not expect to be reached.
-   For example, in the ``default:`` clause in a ``switch`` statement for which
-   all possible values are covered in ``case`` statements.  Use this in places
-   where you might be tempted to put an ``assert(0)`` or ``abort()`` call.
-
-   .. versionadded:: 3.7
-
-.. c:macro:: Py_ABS(x)
-
-   Return the absolute value of ``x``.
-
-   .. versionadded:: 3.3
-
-.. c:macro:: Py_MIN(x, y)
-
-   Return the minimum value between ``x`` and ``y``.
-
-   .. versionadded:: 3.3
-
-.. c:macro:: Py_MAX(x, y)
-
-   Return the maximum value between ``x`` and ``y``.
-
-   .. versionadded:: 3.3
-
-.. c:macro:: Py_STRINGIFY(x)
-
-   Convert ``x`` to a C string.  E.g. ``Py_STRINGIFY(123)`` returns
-   ``"123"``.
-
-   .. versionadded:: 3.4
-
-.. c:macro:: Py_MEMBER_SIZE(type, member)
-
-   Return the size of a structure (``type``) ``member`` in bytes.
-
-   .. versionadded:: 3.6
-
-.. c:macro:: Py_CHARMASK(c)
-
-   Argument must be a character or an integer in the range [-128, 127] or [0,
-   255].  This macro returns ``c`` cast to an ``unsigned char``.
-
-.. c:macro:: Py_GETENV(s)
-
-   Like ``getenv(s)``, but returns *NULL* if :option:`-E` was passed on the
-   command line (i.e. if ``Py_IgnoreEnvironmentFlag`` is set).
-
-.. c:macro:: Py_UNUSED(arg)
-
-   Use this for unused arguments in a function definition to silence compiler
-   warnings. Example: ``int func(int a, int Py_UNUSED(b)) { return a; }``.
-
-   .. versionadded:: 3.4
-
-.. c:macro:: Py_DEPRECATED(version)
-
-   Use this for deprecated declarations.  The macro must be placed before the
-   symbol name.
-
-   Example::
-
-      Py_DEPRECATED(3.8) PyAPI_FUNC(int) Py_OldFunction(void);
-
-   .. versionchanged:: 3.8
-      MSVC support was added.
+C++ users should note that though the API is defined entirely using C, the
+header files do properly declare the entry points to be ``extern "C"``, so there
+is no need to do anything special to use the API from C++.
 
 
 .. _api-objects:
@@ -252,7 +157,7 @@ duration of the call.
 However, a common pitfall is to extract an object from a list and hold on to it
 for a while without incrementing its reference count. Some other operation might
 conceivably remove the object from the list, decrementing its reference count
-and possibly deallocating it. The real danger is that innocent-looking
+and possible deallocating it. The real danger is that innocent-looking
 operations may invoke arbitrary Python code which could do this; there is a code
 path which allows control to flow back to the user from a :c:func:`Py_DECREF`, so
 almost any operation is potentially dangerous.
@@ -303,11 +208,11 @@ error handling for the moment; a better way to code this is shown below)::
    PyObject *t;
 
    t = PyTuple_New(3);
-   PyTuple_SetItem(t, 0, PyLong_FromLong(1L));
-   PyTuple_SetItem(t, 1, PyLong_FromLong(2L));
-   PyTuple_SetItem(t, 2, PyUnicode_FromString("three"));
+   PyTuple_SetItem(t, 0, PyInt_FromLong(1L));
+   PyTuple_SetItem(t, 1, PyInt_FromLong(2L));
+   PyTuple_SetItem(t, 2, PyString_FromString("three"));
 
-Here, :c:func:`PyLong_FromLong` returns a new reference which is immediately
+Here, :c:func:`PyInt_FromLong` returns a new reference which is immediately
 stolen by :c:func:`PyTuple_SetItem`.  When you want to keep using an object
 although the reference to it will be stolen, use :c:func:`Py_INCREF` to grab
 another reference before calling the reference-stealing function.
@@ -341,13 +246,13 @@ sets all items of a list (actually, any mutable sequence) to a given item::
    int
    set_all(PyObject *target, PyObject *item)
    {
-       Py_ssize_t i, n;
+       int i, n;
 
        n = PyObject_Length(target);
        if (n < 0)
            return -1;
        for (i = 0; i < n; i++) {
-           PyObject *index = PyLong_FromSsize_t(i);
+           PyObject *index = PyInt_FromLong(i);
            if (!index)
                return -1;
            if (PyObject_SetItem(target, index, item) < 0) {
@@ -389,8 +294,8 @@ using :c:func:`PySequence_GetItem`. ::
    long
    sum_list(PyObject *list)
    {
-       Py_ssize_t i, n;
-       long total = 0, value;
+       int i, n;
+       long total = 0;
        PyObject *item;
 
        n = PyList_Size(list);
@@ -398,12 +303,8 @@ using :c:func:`PySequence_GetItem`. ::
            return -1; /* Not a list */
        for (i = 0; i < n; i++) {
            item = PyList_GetItem(list, i); /* Can't fail */
-           if (!PyLong_Check(item)) continue; /* Skip non-integers */
-           value = PyLong_AsLong(item);
-           if (value == -1 && PyErr_Occurred())
-               /* Integer too big to fit in a C long, bail out */
-               return -1;
-           total += value;
+           if (!PyInt_Check(item)) continue; /* Skip non-integers */
+           total += PyInt_AsLong(item);
        }
        return total;
    }
@@ -415,8 +316,8 @@ using :c:func:`PySequence_GetItem`. ::
    long
    sum_sequence(PyObject *sequence)
    {
-       Py_ssize_t i, n;
-       long total = 0, value;
+       int i, n;
+       long total = 0;
        PyObject *item;
        n = PySequence_Length(sequence);
        if (n < 0)
@@ -425,17 +326,9 @@ using :c:func:`PySequence_GetItem`. ::
            item = PySequence_GetItem(sequence, i);
            if (item == NULL)
                return -1; /* Not a sequence, or other failure */
-           if (PyLong_Check(item)) {
-               value = PyLong_AsLong(item);
-               Py_DECREF(item);
-               if (value == -1 && PyErr_Occurred())
-                   /* Integer too big to fit in a C long, bail out */
-                   return -1;
-               total += value;
-           }
-           else {
-               Py_DECREF(item); /* Discard reference ownership */
-           }
+           if (PyInt_Check(item))
+               total += PyInt_AsLong(item);
+           Py_DECREF(item); /* Discard reference ownership */
        }
        return total;
    }
@@ -495,15 +388,20 @@ reference to the exception type object when an exception has occurred, and
 function to set the exception state, and :c:func:`PyErr_Clear` clears the
 exception state.
 
+.. index::
+   single: exc_type (in module sys)
+   single: exc_value (in module sys)
+   single: exc_traceback (in module sys)
+
 The full exception state consists of three objects (all of which can  be
 *NULL*): the exception type, the corresponding exception  value, and the
-traceback.  These have the same meanings as the Python result of
-``sys.exc_info()``; however, they are not the same: the Python objects represent
-the last exception being handled by a Python  :keyword:`try` ...
-:keyword:`except` statement, while the C level exception state only exists while
-an exception is being passed on between C functions until it reaches the Python
-bytecode interpreter's  main loop, which takes care of transferring it to
-``sys.exc_info()`` and friends.
+traceback.  These have the same meanings as the Python   objects
+``sys.exc_type``, ``sys.exc_value``, and ``sys.exc_traceback``; however, they
+are not the same: the Python objects represent the last exception being handled
+by a Python  :keyword:`try` ... :keyword:`except` statement, while the C level
+exception state only exists while an exception is being passed on between C
+functions until it reaches the Python bytecode interpreter's  main loop, which
+takes care of transferring it to ``sys.exc_type`` and friends.
 
 .. index:: single: exc_info() (in module sys)
 
@@ -559,11 +457,11 @@ Here is the corresponding C code, in all its glory::
 
            /* Clear the error and use zero: */
            PyErr_Clear();
-           item = PyLong_FromLong(0L);
+           item = PyInt_FromLong(0L);
            if (item == NULL)
                goto error;
        }
-       const_one = PyLong_FromLong(1L);
+       const_one = PyInt_FromLong(1L);
        if (const_one == NULL)
            goto error;
 
@@ -617,15 +515,16 @@ interpreter can only be used after the interpreter has been initialized.
 
 .. index::
    single: Py_Initialize()
-   module: builtins
+   module: __builtin__
    module: __main__
    module: sys
+   module: exceptions
    triple: module; search; path
    single: path (in module sys)
 
 The basic initialization function is :c:func:`Py_Initialize`. This initializes
 the table of loaded modules, and creates the fundamental modules
-:mod:`builtins`, :mod:`__main__`, and :mod:`sys`.  It also
+:mod:`__builtin__`, :mod:`__main__`, :mod:`sys`, and :mod:`exceptions`.  It also
 initializes the module search path (``sys.path``).
 
 .. index:: single: PySys_SetArgvEx()
@@ -673,9 +572,9 @@ Sometimes, it is desirable to "uninitialize" Python.  For instance,  the
 application may want to start over (make another call to
 :c:func:`Py_Initialize`) or the application is simply done with its  use of
 Python and wants to free memory allocated by Python.  This can be accomplished
-by calling :c:func:`Py_FinalizeEx`.  The function :c:func:`Py_IsInitialized` returns
+by calling :c:func:`Py_Finalize`.  The function :c:func:`Py_IsInitialized` returns
 true if Python is currently in the initialized state.  More information about
-these functions is given in a later chapter. Notice that :c:func:`Py_FinalizeEx`
+these functions is given in a later chapter. Notice that :c:func:`Py_Finalize`
 does *not* free all memory allocated by the Python interpreter, e.g. memory
 allocated by extension modules currently cannot be released.
 
@@ -716,7 +615,7 @@ extra checks are performed:
 
 * Sanity checks of the input arguments are added to frame creation.
 
-* The storage for ints is initialized with a known invalid pattern to catch
+* The storage for long ints is initialized with a known invalid pattern to catch
   reference to uninitialized digits.
 
 * Low-level tracing and extra exception checking are added to the runtime

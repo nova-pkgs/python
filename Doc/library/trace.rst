@@ -13,12 +13,6 @@ annotated statement coverage listings, print caller/callee relationships and
 list functions executed during a program run.  It can be used in another program
 or from the command line.
 
-.. seealso::
-
-   `Coverage.py <https://coverage.readthedocs.io/>`_
-      A popular third-party coverage tool that provides HTML
-      output along with advanced features such as branch coverage.
-
 .. _trace-cli:
 
 Command-Line Usage
@@ -41,9 +35,6 @@ all Python modules imported during the execution into the current directory.
 .. cmdoption:: --version
 
    Display the version of the module and exit.
-
-.. versionadded:: 3.8
-    Added ``--module`` option that allows to run an executable module.
 
 Main options
 ^^^^^^^^^^^^
@@ -139,8 +130,7 @@ These options may be repeated multiple times.
 Programmatic Interface
 ----------------------
 
-.. class:: Trace(count=1, trace=1, countfuncs=0, countcallers=0, ignoremods=(),\
-                 ignoredirs=(), infile=None, outfile=None, timing=False)
+.. class:: Trace([count=1[, trace=1[, countfuncs=0[, countcallers=0[, ignoremods=()[, ignoredirs=()[, infile=None[, outfile=None[, timing=False]]]]]]]]])
 
    Create an object to trace execution of a single statement or expression.  All
    parameters are optional.  *count* enables counting of line numbers.  *trace*
@@ -187,7 +177,7 @@ Programmatic Interface
 
        Merge in data from another :class:`CoverageResults` object.
 
-    .. method:: write_results(show_missing=True, summary=False, coverdir=None)
+    .. method:: write_results([show_missing=True[, summary=False[, coverdir=None]]])
 
        Write coverage results.  Set *show_missing* to show lines that had no
        hits.  Set *summary* to include in the output the coverage summary per

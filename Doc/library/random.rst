@@ -11,10 +11,9 @@
 This module implements pseudo-random number generators for various
 distributions.
 
-For integers, there is uniform selection from a range. For sequences, there is
-uniform selection of a random element, a function to generate a random
-permutation of a list in-place, and a function for random sampling without
-replacement.
+For integers, uniform selection from a range. For sequences, uniform selection
+of a random element, a function to generate a random permutation of a list
+in-place, and a function for random sampling without replacement.
 
 On the real line, there are functions to compute uniform, normal (Gaussian),
 lognormal, negative exponential, gamma, and beta distributions. For generating
@@ -31,13 +30,32 @@ for cryptographic purposes.
 
 The functions supplied by this module are actually bound methods of a hidden
 instance of the :class:`random.Random` class.  You can instantiate your own
-instances of :class:`Random` to get generators that don't share state.
+instances of :class:`Random` to get generators that don't share state.  This is
+especially useful for multi-threaded programs, creating a different instance of
+:class:`Random` for each thread, and using the :meth:`jumpahead` method to make
+it likely that the generated sequences seen by each thread don't overlap.
 
 Class :class:`Random` can also be subclassed if you want to use a different
 basic generator of your own devising: in that case, override the :meth:`~Random.random`,
-:meth:`~Random.seed`, :meth:`~Random.getstate`, and :meth:`~Random.setstate` methods.
-Optionally, a new generator can supply a :meth:`~Random.getrandbits` method --- this
+:meth:`~Random.seed`, :meth:`~Random.getstate`, :meth:`~Random.setstate` and
+:meth:`~Random.jumpahead` methods.  Optionally, a new generator can supply a
+:meth:`~Random.getrandbits` method --- this
 allows :meth:`randrange` to produce selections over an arbitrarily large range.
+
+.. versionadded:: 2.4
+   the :meth:`getrandbits` method.
+
+As an example of subclassing, the :mod:`random` module provides the
+:class:`WichmannHill` class that implements an alternative generator in pure
+Python.  The class provides a backward compatible way to reproduce results from
+earlier versions of Python, which used the Wichmann-Hill algorithm as the core
+generator.  Note that this Wichmann-Hill generator can no longer be recommended:
+its period is too short by contemporary standards, and the sequence generated is
+known to fail some stringent randomness tests.  See the references below for a
+recent variant that repairs these flaws.
+
+.. versionchanged:: 2.3
+   MersenneTwister replaced Wichmann-Hill as the default generator.
 
 The :mod:`random` module also provides the :class:`SystemRandom` class which
 uses the system function :func:`os.urandom` to generate random numbers
@@ -46,50 +64,37 @@ from sources provided by the operating system.
 .. warning::
 
    The pseudo-random generators of this module should not be used for
-   security purposes.  For security or cryptographic uses, see the
-   :mod:`secrets` module.
-
-.. seealso::
-
-   M. Matsumoto and T. Nishimura, "Mersenne Twister: A 623-dimensionally
-   equidistributed uniform pseudorandom number generator", ACM Transactions on
-   Modeling and Computer Simulation Vol. 8, No. 1, January pp.3--30 1998.
+   security purposes.  Use :func:`os.urandom` or :class:`SystemRandom` if
+   you require a cryptographically secure pseudo-random number generator.
 
 
-   `Complementary-Multiply-with-Carry recipe
-   <https://code.activestate.com/recipes/576707/>`_ for a compatible alternative
-   random number generator with a long period and comparatively simple update
-   operations.
+Bookkeeping functions:
 
 
-Bookkeeping functions
----------------------
+.. function:: seed(a=None)
 
-.. function:: seed(a=None, version=2)
+   Initialize internal state of the random number generator.
 
-   Initialize the random number generator.
+   ``None`` or no argument seeds from current time or from an operating
+   system specific randomness source if available (see the :func:`os.urandom`
+   function for details on availability).
 
-   If *a* is omitted or ``None``, the current system time is used.  If
-   randomness sources are provided by the operating system, they are used
-   instead of the system time (see the :func:`os.urandom` function for details
-   on availability).
+   If *a* is not ``None`` or an :class:`int` or a :class:`long`, then
+   ``hash(a)`` is used instead.  Note that the hash values for some types
+   are nondeterministic when :envvar:`PYTHONHASHSEED` is enabled.
 
-   If *a* is an int, it is used directly.
-
-   With version 2 (the default), a :class:`str`, :class:`bytes`, or :class:`bytearray`
-   object gets converted to an :class:`int` and all of its bits are used.
-
-   With version 1 (provided for reproducing random sequences from older versions
-   of Python), the algorithm for :class:`str` and :class:`bytes` generates a
-   narrower range of seeds.
-
-   .. versionchanged:: 3.2
-      Moved to the version 2 scheme which uses all of the bits in a string seed.
+   .. versionchanged:: 2.4
+      formerly, operating system resources were not used.
 
 .. function:: getstate()
 
    Return an object capturing the current internal state of the generator.  This
    object can be passed to :func:`setstate` to restore the state.
+
+   .. versionadded:: 2.1
+
+   .. versionchanged:: 2.6
+      State values produced in Python 2.6 cannot be loaded into earlier versions.
 
 
 .. function:: setstate(state)
@@ -98,17 +103,37 @@ Bookkeeping functions
    :func:`setstate` restores the internal state of the generator to what it was at
    the time :func:`getstate` was called.
 
+   .. versionadded:: 2.1
+
+
+.. function:: jumpahead(n)
+
+   Change the internal state to one different from and likely far away from the
+   current state.  *n* is a non-negative integer which is used to scramble the
+   current state vector.  This is most useful in multi-threaded programs, in
+   conjunction with multiple instances of the :class:`Random` class:
+   :meth:`setstate` or :meth:`seed` can be used to force all instances into the
+   same internal state, and then :meth:`jumpahead` can be used to force the
+   instances' states far apart.
+
+   .. versionadded:: 2.1
+
+   .. versionchanged:: 2.3
+      Instead of jumping to a specific state, *n* steps ahead, ``jumpahead(n)``
+      jumps to another state likely to be separated by many steps.
+
 
 .. function:: getrandbits(k)
 
-   Returns a Python integer with *k* random bits. This method is supplied with
-   the MersenneTwister generator and some other generators may also provide it
+   Returns a python :class:`long` int with *k* random bits. This method is supplied
+   with the MersenneTwister generator and some other generators may also provide it
    as an optional part of the API. When available, :meth:`getrandbits` enables
    :meth:`randrange` to handle arbitrarily large ranges.
 
+   .. versionadded:: 2.4
 
-Functions for integers
-----------------------
+Functions for integers:
+
 
 .. function:: randrange(stop)
               randrange(start, stop[, step])
@@ -117,83 +142,39 @@ Functions for integers
    equivalent to ``choice(range(start, stop, step))``, but doesn't actually build a
    range object.
 
-   The positional argument pattern matches that of :func:`range`.  Keyword arguments
-   should not be used because the function may use them in unexpected ways.
+   .. versionadded:: 1.5.2
 
-   .. versionchanged:: 3.2
-      :meth:`randrange` is more sophisticated about producing equally distributed
-      values.  Formerly it used a style like ``int(random()*n)`` which could produce
-      slightly uneven distributions.
 
 .. function:: randint(a, b)
 
-   Return a random integer *N* such that ``a <= N <= b``.  Alias for
-   ``randrange(a, b+1)``.
+   Return a random integer *N* such that ``a <= N <= b``.
 
+Functions for sequences:
 
-Functions for sequences
------------------------
 
 .. function:: choice(seq)
 
    Return a random element from the non-empty sequence *seq*. If *seq* is empty,
    raises :exc:`IndexError`.
 
-.. function:: choices(population, weights=None, *, cum_weights=None, k=1)
-
-   Return a *k* sized list of elements chosen from the *population* with replacement.
-   If the *population* is empty, raises :exc:`IndexError`.
-
-   If a *weights* sequence is specified, selections are made according to the
-   relative weights.  Alternatively, if a *cum_weights* sequence is given, the
-   selections are made according to the cumulative weights (perhaps computed
-   using :func:`itertools.accumulate`).  For example, the relative weights
-   ``[10, 5, 30, 5]`` are equivalent to the cumulative weights
-   ``[10, 15, 45, 50]``.  Internally, the relative weights are converted to
-   cumulative weights before making selections, so supplying the cumulative
-   weights saves work.
-
-   If neither *weights* nor *cum_weights* are specified, selections are made
-   with equal probability.  If a weights sequence is supplied, it must be
-   the same length as the *population* sequence.  It is a :exc:`TypeError`
-   to specify both *weights* and *cum_weights*.
-
-   The *weights* or *cum_weights* can use any numeric type that interoperates
-   with the :class:`float` values returned by :func:`random` (that includes
-   integers, floats, and fractions but excludes decimals).  Weights are
-   assumed to be non-negative.
-
-   For a given seed, the :func:`choices` function with equal weighting
-   typically produces a different sequence than repeated calls to
-   :func:`choice`.  The algorithm used by :func:`choices` uses floating
-   point arithmetic for internal consistency and speed.  The algorithm used
-   by :func:`choice` defaults to integer arithmetic with repeated selections
-   to avoid small biases from round-off error.
-
-   .. versionadded:: 3.6
-
 
 .. function:: shuffle(x[, random])
 
-   Shuffle the sequence *x* in place.
+   Shuffle the sequence *x* in place. The optional argument *random* is a
+   0-argument function returning a random float in [0.0, 1.0); by default, this is
+   the function :func:`.random`.
 
-   The optional argument *random* is a 0-argument function returning a random
-   float in [0.0, 1.0); by default, this is the function :func:`.random`.
-
-   To shuffle an immutable sequence and return a new shuffled list, use
-   ``sample(x, k=len(x))`` instead.
-
-   Note that even for small ``len(x)``, the total number of permutations of *x*
-   can quickly grow larger than the period of most random number generators.
-   This implies that most permutations of a long sequence can never be
-   generated.  For example, a sequence of length 2080 is the largest that
-   can fit within the period of the Mersenne Twister random number generator.
+   Note that for even rather small ``len(x)``, the total number of permutations of
+   *x* is larger than the period of most random number generators; this implies
+   that most permutations of a long sequence can never be generated.
 
 
 .. function:: sample(population, k)
 
-   Return a *k* length list of unique elements chosen from the population sequence
-   or set. Used for random sampling without replacement.
+   Return a *k* length list of unique elements chosen from the population sequence.
+   Used for random sampling without replacement.
+
+   .. versionadded:: 2.3
 
    Returns a new list containing elements from the population while leaving the
    original population unchanged.  The resulting list is in selection order so that
@@ -204,15 +185,9 @@ Functions for sequences
    Members of the population need not be :term:`hashable` or unique.  If the population
    contains repeats, then each occurrence is a possible selection in the sample.
 
-   To choose a sample from a range of integers, use a :func:`range` object as an
+   To choose a sample from a range of integers, use an :func:`xrange` object as an
    argument.  This is especially fast and space efficient for sampling from a large
-   population:  ``sample(range(10000000), k=60)``.
-
-   If the sample size is larger than the population size, a :exc:`ValueError`
-   is raised.
-
-Real-valued distributions
--------------------------
+   population:  ``sample(xrange(10000000), 60)``.
 
 The following functions generate specific real-valued distributions. Function
 parameters are named after the corresponding variables in the distribution's
@@ -240,6 +215,8 @@ be found in any statistics text.
    with the specified *mode* between those bounds.  The *low* and *high* bounds
    default to zero and one.  The *mode* argument defaults to the midpoint
    between the bounds, giving a symmetric distribution.
+
+   .. versionadded:: 2.6
 
 
 .. function:: betavariate(alpha, beta)
@@ -308,189 +285,70 @@ be found in any statistics text.
    parameter.
 
 
-Alternative Generator
----------------------
+Alternative Generators:
 
-.. class:: Random([seed])
+.. class:: WichmannHill([seed])
 
-   Class that implements the default pseudo-random number generator used by the
-   :mod:`random` module.
+   Class that implements the Wichmann-Hill algorithm as the core generator. Has all
+   of the same methods as :class:`Random` plus the :meth:`whseed` method described
+   below.  Because this class is implemented in pure Python, it is not threadsafe
+   and may require locks between calls.  The period of the generator is
+   6,953,607,871,644 which is small enough to require care that two independent
+   random sequences do not overlap.
+
+
+.. function:: whseed([x])
+
+   This is obsolete, supplied for bit-level compatibility with versions of Python
+   prior to 2.1. See :func:`seed` for details.  :func:`whseed` does not guarantee
+   that distinct integer arguments yield distinct internal states, and can yield no
+   more than about 2\*\*24 distinct internal states in all.
+
 
 .. class:: SystemRandom([seed])
 
    Class that uses the :func:`os.urandom` function for generating random numbers
    from sources provided by the operating system. Not available on all systems.
-   Does not rely on software state, and sequences are not reproducible. Accordingly,
-   the :meth:`seed` method has no effect and is ignored.
+   Does not rely on software state and sequences are not reproducible. Accordingly,
+   the :meth:`seed` and :meth:`jumpahead` methods have no effect and are ignored.
    The :meth:`getstate` and :meth:`setstate` methods raise
    :exc:`NotImplementedError` if called.
 
+   .. versionadded:: 2.4
 
-Notes on Reproducibility
-------------------------
+Examples of basic usage::
 
-Sometimes it is useful to be able to reproduce the sequences given by a pseudo
-random number generator.  By re-using a seed value, the same sequence should be
-reproducible from run to run as long as multiple threads are not running.
-
-Most of the random module's algorithms and seeding functions are subject to
-change across Python versions, but two aspects are guaranteed not to change:
-
-* If a new seeding method is added, then a backward compatible seeder will be
-  offered.
-
-* The generator's :meth:`~Random.random` method will continue to produce the same
-  sequence when the compatible seeder is given the same seed.
-
-.. _random-examples:
-
-Examples and Recipes
---------------------
-
-Basic examples::
-
-   >>> random()                             # Random float:  0.0 <= x < 1.0
+   >>> random.random()        # Random float x, 0.0 <= x < 1.0
    0.37444887175646646
-
-   >>> uniform(2.5, 10.0)                   # Random float:  2.5 <= x < 10.0
-   3.1800146073117523
-
-   >>> expovariate(1 / 5)                   # Interval between arrivals averaging 5 seconds
-   5.148957571865031
-
-   >>> randrange(10)                        # Integer from 0 to 9 inclusive
+   >>> random.uniform(1, 10)  # Random float x, 1.0 <= x < 10.0
+   1.1800146073117523
+   >>> random.randint(1, 10)  # Integer from 1 to 10, endpoints included
    7
-
-   >>> randrange(0, 101, 2)                 # Even integer from 0 to 100 inclusive
+   >>> random.randrange(0, 101, 2)  # Even integer from 0 to 100
    26
+   >>> random.choice('abcdefghij')  # Choose a random element
+   'c'
 
-   >>> choice(['win', 'lose', 'draw'])      # Single random element from a sequence
-   'draw'
+   >>> items = [1, 2, 3, 4, 5, 6, 7]
+   >>> random.shuffle(items)
+   >>> items
+   [7, 3, 2, 5, 6, 4, 1]
 
-   >>> deck = 'ace two three four'.split()
-   >>> shuffle(deck)                        # Shuffle a list
-   >>> deck
-   ['four', 'two', 'ace', 'three']
+   >>> random.sample([1, 2, 3, 4, 5],  3)  # Choose 3 elements
+   [4, 1, 5]
 
-   >>> sample([10, 20, 30, 40, 50], k=4)    # Four samples without replacement
-   [40, 10, 50, 30]
 
-Simulations::
-
-   >>> # Six roulette wheel spins (weighted sampling with replacement)
-   >>> choices(['red', 'black', 'green'], [18, 18, 2], k=6)
-   ['red', 'green', 'black', 'black', 'red', 'black']
-
-   >>> # Deal 20 cards without replacement from a deck of 52 playing cards
-   >>> # and determine the proportion of cards with a ten-value
-   >>> # (a ten, jack, queen, or king).
-   >>> deck = collections.Counter(tens=16, low_cards=36)
-   >>> seen = sample(list(deck.elements()), k=20)
-   >>> seen.count('tens') / 20
-   0.15
-
-   >>> # Estimate the probability of getting 5 or more heads from 7 spins
-   >>> # of a biased coin that settles on heads 60% of the time.
-   >>> def trial():
-   ...     return choices('HT', cum_weights=(0.60, 1.00), k=7).count('H') >= 5
-   ...
-   >>> sum(trial() for i in range(10000)) / 10000
-   0.4169
-
-   >>> # Probability of the median of 5 samples being in middle two quartiles
-   >>> def trial():
-   ...     return 2500 <= sorted(choices(range(10000), k=5))[2] < 7500
-   ...
-   >>> sum(trial() for i in range(10000)) / 10000
-   0.7958
-
-Example of `statistical bootstrapping
-<https://en.wikipedia.org/wiki/Bootstrapping_(statistics)>`_ using resampling
-with replacement to estimate a confidence interval for the mean of a sample of
-size five::
-
-   # http://statistics.about.com/od/Applications/a/Example-Of-Bootstrapping.htm
-   from statistics import fmean as mean
-   from random import choices
-
-   data = 1, 2, 4, 4, 10
-   means = sorted(mean(choices(data, k=5)) for i in range(20))
-   print(f'The sample mean of {mean(data):.1f} has a 90% confidence '
-         f'interval from {means[1]:.1f} to {means[-2]:.1f}')
-
-Example of a `resampling permutation test
-<https://en.wikipedia.org/wiki/Resampling_(statistics)#Permutation_tests>`_
-to determine the statistical significance or `p-value
-<https://en.wikipedia.org/wiki/P-value>`_ of an observed difference
-between the effects of a drug versus a placebo::
-
-    # Example from "Statistics is Easy" by Dennis Shasha and Manda Wilson
-    from statistics import fmean as mean
-    from random import shuffle
-
-    drug = [54, 73, 53, 70, 73, 68, 52, 65, 65]
-    placebo = [54, 51, 58, 44, 55, 52, 42, 47, 58, 46]
-    observed_diff = mean(drug) - mean(placebo)
-
-    n = 10000
-    count = 0
-    combined = drug + placebo
-    for i in range(n):
-        shuffle(combined)
-        new_diff = mean(combined[:len(drug)]) - mean(combined[len(drug):])
-        count += (new_diff >= observed_diff)
-
-    print(f'{n} label reshufflings produced only {count} instances with a difference')
-    print(f'at least as extreme as the observed difference of {observed_diff:.1f}.')
-    print(f'The one-sided p-value of {count / n:.4f} leads us to reject the null')
-    print(f'hypothesis that there is no difference between the drug and the placebo.')
-
-Simulation of arrival times and service deliveries in a single server queue::
-
-    from random import expovariate, gauss
-    from statistics import mean, median, stdev
-
-    average_arrival_interval = 5.6
-    average_service_time = 5.0
-    stdev_service_time = 0.5
-
-    num_waiting = 0
-    arrivals = []
-    starts = []
-    arrival = service_end = 0.0
-    for i in range(20000):
-        if arrival <= service_end:
-            num_waiting += 1
-            arrival += expovariate(1.0 / average_arrival_interval)
-            arrivals.append(arrival)
-        else:
-            num_waiting -= 1
-            service_start = service_end if num_waiting else arrival
-            service_time = gauss(average_service_time, stdev_service_time)
-            service_end = service_start + service_time
-            starts.append(service_start)
-
-    waits = [start - arrival for arrival, start in zip(arrivals, starts)]
-    print(f'Mean wait: {mean(waits):.1f}.  Stdev wait: {stdev(waits):.1f}.')
-    print(f'Median wait: {median(waits):.1f}.  Max wait: {max(waits):.1f}.')
 
 .. seealso::
 
-   `Statistics for Hackers <https://www.youtube.com/watch?v=Iq9DzN6mvYA>`_
-   a video tutorial by
-   `Jake Vanderplas <https://us.pycon.org/2016/speaker/profile/295/>`_
-   on statistical analysis using just a few fundamental concepts
-   including simulation, sampling, shuffling, and cross-validation.
+   M. Matsumoto and T. Nishimura, "Mersenne Twister: A 623-dimensionally
+   equidistributed uniform pseudorandom number generator", ACM Transactions on
+   Modeling and Computer Simulation Vol. 8, No. 1, January pp.3--30 1998.
 
-   `Economics Simulation
-   <http://nbviewer.jupyter.org/url/norvig.com/ipython/Economics.ipynb>`_
-   a simulation of a marketplace by
-   `Peter Norvig <http://norvig.com/bio.html>`_ that shows effective
-   use of many of the tools and distributions provided by this module
-   (gauss, uniform, sample, betavariate, choice, triangular, and randrange).
+   Wichmann, B. A. & Hill, I. D., "Algorithm AS 183: An efficient and portable
+   pseudo-random number generator", Applied Statistics 31 (1982) 188-190.
 
-   `A Concrete Introduction to Probability (using Python)
-   <http://nbviewer.jupyter.org/url/norvig.com/ipython/Probability.ipynb>`_
-   a tutorial by `Peter Norvig <http://norvig.com/bio.html>`_ covering
-   the basics of probability theory, how to write simulations, and
-   how to perform data analysis using Python.
+   `Complementary-Multiply-with-Carry recipe
+   <http://code.activestate.com/recipes/576707/>`_ for a compatible alternative
+   random number generator with a long period and comparatively simple update
+   operations.

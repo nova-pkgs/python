@@ -4,9 +4,8 @@
 .. module:: numbers
    :synopsis: Numeric abstract base classes (Complex, Real, Integral, etc.).
 
-**Source code:** :source:`Lib/numbers.py`
+.. versionadded:: 2.6
 
---------------
 
 The :mod:`numbers` module (:pep:`3141`) defines a hierarchy of numeric
 :term:`abstract base classes <abstract base class>` which progressively define
@@ -38,7 +37,7 @@ The numeric tower
 
       Abstract. Retrieves the imaginary component of this number.
 
-   .. abstractmethod:: conjugate()
+   .. method:: conjugate()
 
       Abstract. Returns the complex conjugate. For example, ``(1+3j).conjugate()
       == (1-3j)``.
@@ -113,8 +112,6 @@ those. You can add ``MyFoo`` between :class:`Complex` and
     MyFoo.register(Real)
 
 
-.. _implementing-the-arithmetic-operations:
-
 Implementing the arithmetic operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -186,7 +183,7 @@ forward and reverse instances of any given operator. For example,
 
     def _operator_fallbacks(monomorphic_operator, fallback_operator):
         def forward(a, b):
-            if isinstance(b, (int, Fraction)):
+            if isinstance(b, (int, long, Fraction)):
                 return monomorphic_operator(a, b)
             elif isinstance(b, float):
                 return fallback_operator(float(a), b)

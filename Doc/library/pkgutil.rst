@@ -4,6 +4,8 @@
 .. module:: pkgutil
    :synopsis: Utilities for the import system.
 
+.. versionadded:: 2.3
+
 **Source code:** :source:`Lib/pkgutil.py`
 
 --------------
@@ -11,11 +13,6 @@
 This module provides utilities for the import system, in particular package
 support.
 
-.. class:: ModuleInfo(module_finder, name, ispkg)
-
-    A namedtuple that holds a brief summary of a module's info.
-
-    .. versionadded:: 3.6
 
 .. function:: extend_path(path, name)
 
@@ -43,72 +40,59 @@ support.
    returned.  Items are only appended to the copy at the end.
 
    It is assumed that :data:`sys.path` is a sequence.  Items of :data:`sys.path`
-   that are not strings referring to existing directories are ignored. Unicode
-   items on :data:`sys.path` that cause errors when used as filenames may cause
-   this function to raise an exception (in line with :func:`os.path.isdir`
-   behavior).
+   that are not (Unicode or 8-bit) strings referring to existing directories are
+   ignored.  Unicode items on :data:`sys.path` that cause errors when used as
+   filenames may cause this function to raise an exception (in line with
+   :func:`os.path.isdir` behavior).
 
 
 .. class:: ImpImporter(dirname=None)
 
-   :pep:`302` Finder that wraps Python's "classic" import algorithm.
+   :pep:`302` Importer that wraps Python's "classic" import algorithm.
 
-   If *dirname* is a string, a :pep:`302` finder is created that searches that
-   directory.  If *dirname* is ``None``, a :pep:`302` finder is created that
+   If *dirname* is a string, a :pep:`302` importer is created that searches that
+   directory.  If *dirname* is ``None``, a :pep:`302` importer is created that
    searches the current :data:`sys.path`, plus any modules that are frozen or
    built-in.
 
    Note that :class:`ImpImporter` does not currently support being used by
    placement on :data:`sys.meta_path`.
 
-   .. deprecated:: 3.3
-      This emulation is no longer needed, as the standard import mechanism
-      is now fully :pep:`302` compliant and available in :mod:`importlib`.
-
 
 .. class:: ImpLoader(fullname, file, filename, etc)
 
-   :term:`Loader` that wraps Python's "classic" import algorithm.
-
-   .. deprecated:: 3.3
-      This emulation is no longer needed, as the standard import mechanism
-      is now fully :pep:`302` compliant and available in :mod:`importlib`.
+   :pep:`302` Loader that wraps Python's "classic" import algorithm.
 
 
 .. function:: find_loader(fullname)
 
-   Retrieve a module :term:`loader` for the given *fullname*.
+   Find a :pep:`302` "loader" object for *fullname*.
 
-   This is a backwards compatibility wrapper around
-   :func:`importlib.util.find_spec` that converts most failures to
-   :exc:`ImportError` and only returns the loader rather than the full
-   :class:`ModuleSpec`.
+   If *fullname* contains dots, path must be the containing package's
+   ``__path__``.  Returns ``None`` if the module cannot be found or imported.
+   This function uses :func:`iter_importers`, and is thus subject to the same
+   limitations regarding platform-specific special import locations such as the
+   Windows registry.
 
-   .. versionchanged:: 3.3
-      Updated to be based directly on :mod:`importlib` rather than relying
-      on the package internal :pep:`302` import emulation.
-
-   .. versionchanged:: 3.4
-      Updated to be based on :pep:`451`
 
 .. function:: get_importer(path_item)
 
-   Retrieve a :term:`finder` for the given *path_item*.
+   Retrieve a :pep:`302` importer for the given *path_item*.
 
-   The returned finder is cached in :data:`sys.path_importer_cache` if it was
+   The returned importer is cached in :data:`sys.path_importer_cache` if it was
    newly created by a path hook.
+
+   If there is no importer, a wrapper around the basic import machinery is
+   returned.  This wrapper is never inserted into the importer cache (``None``
+   is inserted instead).
 
    The cache (or part of it) can be cleared manually if a rescan of
    :data:`sys.path_hooks` is necessary.
 
-   .. versionchanged:: 3.3
-      Updated to be based directly on :mod:`importlib` rather than relying
-      on the package internal :pep:`302` import emulation.
-
 
 .. function:: get_loader(module_or_name)
 
-   Get a :term:`loader` object for *module_or_name*.
+   Get a :pep:`302` "loader" object for *module_or_name*.
 
    If the module or package is accessible via the normal import mechanism, a
    wrapper around the relevant part of that machinery is returned.  Returns
@@ -116,57 +100,51 @@ support.
    not already imported, its containing package (if any) is imported, in order
    to establish the package ``__path__``.
 
-   .. versionchanged:: 3.3
-      Updated to be based directly on :mod:`importlib` rather than relying
-      on the package internal :pep:`302` import emulation.
-
-   .. versionchanged:: 3.4
-      Updated to be based on :pep:`451`
+   This function uses :func:`iter_importers`, and is thus subject to the same
+   limitations regarding platform-specific special import locations such as the
+   Windows registry.
 
 
 .. function:: iter_importers(fullname='')
 
-   Yield :term:`finder` objects for the given module name.
+   Yield :pep:`302` importers for the given module name.
 
-   If fullname contains a '.', the finders will be for the package
-   containing fullname, otherwise they will be all registered top level
-   finders (i.e. those on both sys.meta_path and sys.path_hooks).
+   If fullname contains a '.', the importers will be for the package containing
+   fullname, otherwise they will be importers for :data:`sys.meta_path`,
+   :data:`sys.path`, and Python's "classic" import machinery, in that order.  If
+   the named module is in a package, that package is imported as a side effect
+   of invoking this function.
 
-   If the named module is in a package, that package is imported as a side
-   effect of invoking this function.
+   Non-:pep:`302` mechanisms (e.g. the Windows registry) used by the standard
+   import machinery to find files in alternative locations are partially
+   supported, but are searched *after* :data:`sys.path`.  Normally, these
+   locations are searched *before* :data:`sys.path`, preventing :data:`sys.path`
+   entries from shadowing them.
 
-   If no module name is specified, all top level finders are produced.
+   For this to cause a visible difference in behaviour, there must be a module
+   or package name that is accessible via both :data:`sys.path` and one of the
+   non-:pep:`302` file system mechanisms.  In this case, the emulation will find
+   the former version, while the builtin import mechanism will find the latter.
 
-   .. versionchanged:: 3.3
-      Updated to be based directly on :mod:`importlib` rather than relying
-      on the package internal :pep:`302` import emulation.
+   Items of the following types can be affected by this discrepancy:
+   ``imp.C_EXTENSION``, ``imp.PY_SOURCE``, ``imp.PY_COMPILED``,
+   ``imp.PKG_DIRECTORY``.
 
 
 .. function:: iter_modules(path=None, prefix='')
 
-   Yields :class:`ModuleInfo` for all submodules on *path*, or, if
-   *path* is ``None``, all top-level modules on ``sys.path``.
+   Yields ``(module_loader, name, ispkg)`` for all submodules on *path*, or, if
+   path is ``None``, all top-level modules on ``sys.path``.
 
    *path* should be either ``None`` or a list of paths to look for modules in.
 
    *prefix* is a string to output on the front of every module name on output.
 
-   .. note::
-
-      Only works for a :term:`finder` which defines an ``iter_modules()``
-      method. This interface is non-standard, so the module also provides
-      implementations for :class:`importlib.machinery.FileFinder` and
-      :class:`zipimport.zipimporter`.
-
-   .. versionchanged:: 3.3
-      Updated to be based directly on :mod:`importlib` rather than relying
-      on the package internal :pep:`302` import emulation.
-
 
 .. function:: walk_packages(path=None, prefix='', onerror=None)
 
-   Yields :class:`ModuleInfo` for all modules recursively on
-   *path*, or, if *path* is ``None``, all accessible modules.
+   Yields ``(module_loader, name, ispkg)`` for all modules recursively on
+   *path*, or, if path is ``None``, all accessible modules.
 
    *path* should be either ``None`` or a list of paths to look for modules in.
 
@@ -190,24 +168,12 @@ support.
       # list all submodules of ctypes
       walk_packages(ctypes.__path__, ctypes.__name__ + '.')
 
-   .. note::
-
-      Only works for a :term:`finder` which defines an ``iter_modules()``
-      method. This interface is non-standard, so the module also provides
-      implementations for :class:`importlib.machinery.FileFinder` and
-      :class:`zipimport.zipimporter`.
-
-   .. versionchanged:: 3.3
-      Updated to be based directly on :mod:`importlib` rather than relying
-      on the package internal :pep:`302` import emulation.
-
 
 .. function:: get_data(package, resource)
 
    Get a resource from a package.
 
-   This is a wrapper for the :term:`loader`
-   :meth:`get_data <importlib.abc.ResourceLoader.get_data>` API.  The
+   This is a wrapper for the :pep:`302` loader :func:`get_data` API.  The
    *package* argument should be the name of a package, in standard module format
    (``foo.bar``).  The *resource* argument should be in the form of a relative
    filename, using ``/`` as the path separator.  The parent directory name
@@ -222,8 +188,7 @@ support.
       d = os.path.dirname(sys.modules[package].__file__)
       data = open(os.path.join(d, resource), 'rb').read()
 
-   If the package cannot be located or loaded, or it uses a :term:`loader`
-   which does not support :meth:`get_data <importlib.abc.ResourceLoader.get_data>`,
-   then ``None`` is returned.  In particular, the :term:`loader` for
-   :term:`namespace packages <namespace package>` does not support
-   :meth:`get_data <importlib.abc.ResourceLoader.get_data>`.
+   If the package cannot be located or loaded, or it uses a :pep:`302` loader
+   which does not support :func:`get_data`, then ``None`` is returned.
+
+   .. versionadded:: 2.6

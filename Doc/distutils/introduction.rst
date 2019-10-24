@@ -4,8 +4,6 @@
 An Introduction to Distutils
 ****************************
 
-.. include:: ./_setuptools_disclaimer.rst
-
 This document covers using the Distutils to distribute your Python modules,
 concentrating on the role of developer/distributor: if you're looking for
 information on installing Python modules, you should refer to the
@@ -86,7 +84,7 @@ terminal::
 
    python setup.py sdist
 
-For Windows, open a command prompt window (:menuselection:`Start -->
+For Windows, open a command prompt windows (:menuselection:`Start -->
 Accessories`) and change the command to::
 
    setup.py sdist
@@ -158,8 +156,8 @@ module
 
 pure Python module
    a module written in Python and contained in a single :file:`.py` file (and
-   possibly associated :file:`.pyc` files).  Sometimes referred to as a
-   "pure module."
+   possibly associated :file:`.pyc` and/or :file:`.pyo` files).  Sometimes referred
+   to as a "pure module."
 
 extension module
    a module written in the low-level language of the Python implementation: C/C++
@@ -195,7 +193,7 @@ modules using the Distutils:
 module distribution
    a collection of Python modules distributed together as a single downloadable
    resource and meant to be installed *en masse*.  Examples of some well-known
-   module distributions are NumPy, SciPy, Pillow,
+   module distributions are Numeric Python, PyXML, Pillow,
    or mxBase.  (This would be called a *package*, except that term is
    already taken in the Python context: a single module distribution may contain
    zero, one, or many Python packages.)
@@ -212,3 +210,5 @@ distribution root
    the top-level directory of your source tree (or  source distribution); the
    directory where :file:`setup.py` exists.  Generally  :file:`setup.py` will be
    run from this directory.
+
+

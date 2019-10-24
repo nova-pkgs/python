@@ -1,3 +1,4 @@
+
 .. _allos:
 
 *********************************
@@ -16,6 +17,7 @@ but they are available on most other systems as well.  Here's an overview:
    io.rst
    time.rst
    argparse.rst
+   optparse.rst
    getopt.rst
    logging.rst
    logging.config.rst

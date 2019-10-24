@@ -22,7 +22,7 @@ class BasicWrapTestCase(unittest.TestCase):
     def test_wchar_parm(self):
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_wchar, c_int, c_long, c_float, c_double]
-        result = f(self.wrap(1), self.wrap("x"), self.wrap(3), self.wrap(4), self.wrap(5.0), self.wrap(6.0))
+        result = f(self.wrap(1), self.wrap(u"x"), self.wrap(3), self.wrap(4), self.wrap(5.0), self.wrap(6.0))
         self.assertEqual(result, 139)
         self.assertIs(type(result), int)
 
@@ -132,7 +132,7 @@ class BasicWrapTestCase(unittest.TestCase):
         f.argtypes = [c_longlong, MyCallback]
 
         def callback(value):
-            self.assertIsInstance(value, int)
+            self.assertIsInstance(value, (int, long))
             return value & 0x7FFFFFFF
 
         cb = MyCallback(callback)
@@ -169,10 +169,6 @@ class BasicWrapTestCase(unittest.TestCase):
         s2h = dll.ret_2h_func(self.wrap(inp))
         self.assertEqual((s2h.x, s2h.y), (99*2, 88*3))
 
-        # Test also that the original struct was unmodified (i.e. was passed by
-        # value)
-        self.assertEqual((inp.x, inp.y), (99, 88))
-
     def test_struct_return_8H(self):
         class S8I(Structure):
             _fields_ = [("a", c_int),
@@ -198,7 +194,7 @@ class BasicWrapTestCase(unittest.TestCase):
 
         a = A()
         a._as_parameter_ = a
-        with self.assertRaises(RecursionError):
+        with self.assertRaises(RuntimeError):
             c_int.from_param(a)
 
 

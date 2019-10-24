@@ -4,31 +4,22 @@
 .. module:: readline
    :platform: Unix
    :synopsis: GNU readline support for Python.
-
 .. sectionauthor:: Skip Montanaro <skip@pobox.com>
 
---------------
 
 The :mod:`readline` module defines a number of functions to facilitate
 completion and reading/writing of history files from the Python interpreter.
 This module can be used directly, or via the :mod:`rlcompleter` module, which
 supports completion of Python identifiers at the interactive prompt.  Settings
 made using  this module affect the behaviour of both the interpreter's
-interactive prompt  and the prompts offered by the built-in :func:`input`
-function.
-
-Readline keybindings may be configured via an initialization file, typically
-``.inputrc`` in your home directory.  See `Readline Init File
-<https://tiswww.cwru.edu/php/chet/readline/rluserman.html#SEC9>`_
-in the GNU Readline manual for information about the format and
-allowable constructs of that file, and the capabilities of the
-Readline library in general.
+interactive prompt  and the prompts offered by the :func:`raw_input` and
+:func:`input` built-in functions.
 
 .. note::
 
   The underlying Readline library API may be implemented by
   the ``libedit`` library instead of GNU readline.
-  On macOS the :mod:`readline` module detects which library is being used
+  On MacOS X the :mod:`readline` module detects which library is being used
   at run time.
 
   The configuration file for ``libedit`` is different from that
@@ -36,13 +27,12 @@ Readline library in general.
   you can check for the text "libedit" in :const:`readline.__doc__`
   to differentiate between GNU readline and libedit.
 
-  If you use *editline*/``libedit`` readline emulation on macOS, the
-  initialization file located in your home directory is named
-  ``.editrc``. For example, the following content in ``~/.editrc`` will
-  turn ON *vi* keybindings and TAB completion::
-
-    python:bind -v
-    python:bind ^I rl_complete
+Readline keybindings may be configured via an initialization file, typically
+``.inputrc`` in your home directory.  See `Readline Init File
+<https://cnswww.cns.cwru.edu/php/chet/readline/rluserman.html#SEC9>`_
+in the GNU Readline manual for information about the format and
+allowable constructs of that file, and the capabilities of the
+Readline library in general.
 
 
 Init file
@@ -108,17 +98,6 @@ The following functions operate on a history file:
    :c:func:`write_history` in the underlying library.
 
 
-.. function:: append_history_file(nelements[, filename])
-
-   Append the last *nelements* items of history to a file.  The default filename is
-   :file:`~/.history`.  The file must already exist.  This calls
-   :c:func:`append_history` in the underlying library.  This function
-   only exists if Python was compiled for a version of the library
-   that supports it.
-
-   .. versionadded:: 3.5
-
-
 .. function:: get_history_length()
               set_history_length(length)
 
@@ -141,6 +120,8 @@ The following functions operate on a global history list:
    underlying library.  The Python function only exists if Python was
    compiled for a version of the library that supports it.
 
+   .. versionadded:: 2.4
+
 
 .. function:: get_current_history_length()
 
@@ -148,11 +129,15 @@ The following functions operate on a global history list:
    :func:`get_history_length`, which returns the maximum number of lines that will
    be written to a history file.)
 
+   .. versionadded:: 2.3
+
 
 .. function:: get_history_item(index)
 
    Return the current contents of history item at *index*.  The item index
    is one-based.  This calls :c:func:`history_get` in the underlying library.
+
+   .. versionadded:: 2.3
 
 
 .. function:: remove_history_item(pos)
@@ -161,12 +146,16 @@ The following functions operate on a global history list:
    The position is zero-based.  This calls :c:func:`remove_history` in
    the underlying library.
 
+   .. versionadded:: 2.4
+
 
 .. function:: replace_history_item(pos, line)
 
    Replace history item specified by its position with *line*.
    The position is zero-based.  This calls :c:func:`replace_history_entry`
    in the underlying library.
+
+   .. versionadded:: 2.4
 
 
 .. function:: add_history(line)
@@ -175,22 +164,10 @@ The following functions operate on a global history list:
    This calls :c:func:`add_history` in the underlying library.
 
 
-.. function:: set_auto_history(enabled)
-
-   Enable or disable automatic calls to :c:func:`add_history` when reading
-   input via readline.  The *enabled* argument should be a Boolean value
-   that when true, enables auto history, and that when false, disables
-   auto history.
-
-   .. versionadded:: 3.6
-
-   .. impl-detail::
-      Auto history is enabled by default, and changes to this do not persist
-      across multiple sessions.
-
-
 Startup hooks
 -------------
+
+   .. versionadded:: 2.3
 
 
 .. function:: set_startup_hook([function])
@@ -244,6 +221,8 @@ with a custom completer, a different set of word delimiters should be set.
 
    Get the completer function, or ``None`` if no completer function has been set.
 
+   .. versionadded:: 2.3
+
 
 .. function:: get_completion_type()
 
@@ -251,6 +230,7 @@ with a custom completer, a different set of word delimiters should be set.
    :c:data:`rl_completion_type` variable in the underlying library as
    an integer.
 
+   .. versionadded:: 2.6
 
 .. function:: get_begidx()
               get_endidx()
@@ -269,7 +249,6 @@ with a custom completer, a different set of word delimiters should be set.
    These functions access the :c:data:`rl_completer_word_break_characters`
    variable in the underlying library.
 
-
 .. function:: set_completion_display_matches_hook([function])
 
    Set or remove the completion display function.  If *function* is
@@ -281,6 +260,7 @@ with a custom completer, a different set of word delimiters should be set.
    ``function(substitution, [matches], longest_match_length)`` once
    each time matches need to be displayed.
 
+   .. versionadded:: 2.6
 
 .. _readline-example:
 
@@ -289,55 +269,30 @@ Example
 
 The following example demonstrates how to use the :mod:`readline` module's
 history reading and writing functions to automatically load and save a history
-file named :file:`.python_history` from the user's home directory.  The code
-below would normally be executed automatically during interactive sessions
-from the user's :envvar:`PYTHONSTARTUP` file. ::
+file named :file:`.pyhist` from the user's home directory.  The code below would
+normally be executed automatically during interactive sessions from the user's
+:envvar:`PYTHONSTARTUP` file. ::
 
-   import atexit
    import os
    import readline
-
-   histfile = os.path.join(os.path.expanduser("~"), ".python_history")
+   histfile = os.path.join(os.path.expanduser("~"), ".pyhist")
    try:
        readline.read_history_file(histfile)
        # default history len is -1 (infinite), which may grow unruly
        readline.set_history_length(1000)
-   except FileNotFoundError:
+   except IOError:
        pass
-
-   atexit.register(readline.write_history_file, histfile)
-
-This code is actually automatically run when Python is run in
-:ref:`interactive mode <tut-interactive>` (see :ref:`rlcompleter-config`).
-
-The following example achieves the same goal but supports concurrent interactive
-sessions, by only appending the new history. ::
-
    import atexit
-   import os
-   import readline
-   histfile = os.path.join(os.path.expanduser("~"), ".python_history")
-
-   try:
-       readline.read_history_file(histfile)
-       h_len = readline.get_current_history_length()
-   except FileNotFoundError:
-       open(histfile, 'wb').close()
-       h_len = 0
-
-   def save(prev_h_len, histfile):
-       new_h_len = readline.get_current_history_length()
-       readline.set_history_length(1000)
-       readline.append_history_file(new_h_len - prev_h_len, histfile)
-   atexit.register(save, h_len, histfile)
+   atexit.register(readline.write_history_file, histfile)
+   del os, histfile
 
 The following example extends the :class:`code.InteractiveConsole` class to
 support history save/restore. ::
 
-   import atexit
    import code
-   import os
    import readline
+   import atexit
+   import os
 
    class HistoryConsole(code.InteractiveConsole):
        def __init__(self, locals=None, filename="<console>",
@@ -350,10 +305,11 @@ support history save/restore. ::
            if hasattr(readline, "read_history_file"):
                try:
                    readline.read_history_file(histfile)
-               except FileNotFoundError:
+               except IOError:
                    pass
                atexit.register(self.save_history, histfile)
 
        def save_history(self, histfile):
            readline.set_history_length(1000)
            readline.write_history_file(histfile)
+

@@ -1,56 +1,48 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import smtplib
 
-from email.message import EmailMessage
-from email.headerregistry import Address
-from email.utils import make_msgid
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-# Create the base text message.
-msg = EmailMessage()
-msg['Subject'] = "Ayons asperges pour le déjeuner"
-msg['From'] = Address("Pepé Le Pew", "pepe", "example.com")
-msg['To'] = (Address("Penelope Pussycat", "penelope", "example.com"),
-             Address("Fabrette Pussycat", "fabrette", "example.com"))
-msg.set_content("""\
-Salut!
+# me == my email address
+# you == recipient's email address
+me = "my@email.com"
+you = "your@email.com"
 
-Cela ressemble à un excellent recipie[1] déjeuner.
+# Create message container - the correct MIME type is multipart/alternative.
+msg = MIMEMultipart('alternative')
+msg['Subject'] = "Link"
+msg['From'] = me
+msg['To'] = you
 
-[1] http://www.yummly.com/recipe/Roasted-Asparagus-Epicurious-203718
-
---Pepé
-""")
-
-# Add the html version.  This converts the message into a multipart/alternative
-# container, with the original text message as the first part and the new html
-# message as the second part.
-asparagus_cid = make_msgid()
-msg.add_alternative("""\
+# Create the body of the message (a plain-text and an HTML version).
+text = "Hi!\nHow are you?\nHere is the link you wanted:\nhttps://www.python.org"
+html = """\
 <html>
   <head></head>
   <body>
-    <p>Salut!</p>
-    <p>Cela ressemble à un excellent
-        <a href="http://www.yummly.com/recipe/Roasted-Asparagus-Epicurious-203718">
-            recipie
-        </a> déjeuner.
+    <p>Hi!<br>
+       How are you?<br>
+       Here is the <a href="https://www.python.org">link</a> you wanted.
     </p>
-    <img src="cid:{asparagus_cid}" />
   </body>
 </html>
-""".format(asparagus_cid=asparagus_cid[1:-1]), subtype='html')
-# note that we needed to peel the <> off the msgid for use in the html.
+"""
 
-# Now add the related image to the html part.
-with open("roasted-asparagus.jpg", 'rb') as img:
-    msg.get_payload()[1].add_related(img.read(), 'image', 'jpeg',
-                                     cid=asparagus_cid)
+# Record the MIME types of both parts - text/plain and text/html.
+part1 = MIMEText(text, 'plain')
+part2 = MIMEText(html, 'html')
 
-# Make a local copy of what we are going to send.
-with open('outgoing.msg', 'wb') as f:
-    f.write(bytes(msg))
+# Attach parts into message container.
+# According to RFC 2046, the last part of a multipart message, in this case
+# the HTML message, is best and preferred.
+msg.attach(part1)
+msg.attach(part2)
 
 # Send the message via local SMTP server.
-with smtplib.SMTP('localhost') as s:
-    s.send_message(msg)
+s = smtplib.SMTP('localhost')
+# sendmail function takes 3 arguments: sender's address, recipient's address
+# and message to send - here it is sent as one string.
+s.sendmail(me, you, msg.as_string())
+s.quit()

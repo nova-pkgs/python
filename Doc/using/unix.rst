@@ -1,4 +1,4 @@
-.. highlight:: sh
+.. highlightlang:: sh
 
 .. _using-on-unix:
 
@@ -30,7 +30,7 @@ following links:
       for Debian users
    https://en.opensuse.org/Portal:Packaging
       for OpenSuse users
-   https://docs-old.fedoraproject.org/en-US/Fedora_Draft_Documentation/0.1/html/RPM_Guide/ch-creating-rpms.html
+   https://docs.fedoraproject.org/en-US/Fedora_Draft_Documentation/0.1/html/RPM_Guide/ch-creating-rpms.html
       for Fedora users
    http://www.slackbook.org/html/package-management-making-packages.html
       for Slackware users
@@ -69,22 +69,22 @@ Building Python
 If you want to compile CPython yourself, first thing you should do is get the
 `source <https://www.python.org/downloads/source/>`_. You can download either the
 latest release's source or just grab a fresh `clone
-<https://devguide.python.org/setup/#getting-the-source-code>`_.  (If you want
+<https://docs.python.org/devguide/setup.html#getting-the-source-code>`_.  (If you want
 to contribute patches, you will need a clone.)
 
-The build process consists of the usual commands::
+The build process consists in the usual ::
 
    ./configure
    make
    make install
 
-Configuration options and caveats for specific Unix platforms are extensively
-documented in the :source:`README.rst` file in the root of the Python source
-tree.
+invocations. Configuration options and caveats for specific Unix platforms are
+extensively documented in the :source:`README` file in the root of the Python
+source tree.
 
 .. warning::
 
-   ``make install`` can overwrite or masquerade the :file:`python3` binary.
+   ``make install`` can overwrite or masquerade the :file:`python` binary.
    ``make altinstall`` is therefore recommended instead of ``make install``
    since it only installs :file:`{exec_prefix}/bin/python{version}`.
 
@@ -102,7 +102,7 @@ For example, on most Linux systems, the default for both is :file:`/usr`.
 +-----------------------------------------------+------------------------------------------+
 | File/directory                                | Meaning                                  |
 +===============================================+==========================================+
-| :file:`{exec_prefix}/bin/python3`             | Recommended location of the interpreter. |
+| :file:`{exec_prefix}/bin/python`              | Recommended location of the interpreter. |
 +-----------------------------------------------+------------------------------------------+
 | :file:`{prefix}/lib/python{version}`,         | Recommended locations of the directories |
 | :file:`{exec_prefix}/lib/python{version}`     | containing the standard modules.         |
@@ -112,25 +112,38 @@ For example, on most Linux systems, the default for both is :file:`/usr`.
 |                                               | developing Python extensions and         |
 |                                               | embedding the interpreter.               |
 +-----------------------------------------------+------------------------------------------+
+| :file:`~/.pythonrc.py`                        | User-specific initialization file loaded |
+|                                               | by the user module; not used by default  |
+|                                               | or by most applications.                 |
++-----------------------------------------------+------------------------------------------+
 
 
 Miscellaneous
 =============
 
 To easily use Python scripts on Unix, you need to make them executable,
-e.g. with
-
-.. code-block:: shell-session
+e.g. with ::
 
    $ chmod +x script
 
 and put an appropriate Shebang line at the top of the script.  A good choice is
 usually ::
 
-   #!/usr/bin/env python3
+   #!/usr/bin/env python
 
 which searches for the Python interpreter in the whole :envvar:`PATH`.  However,
 some Unices may not have the :program:`env` command, so you may need to hardcode
-``/usr/bin/python3`` as the interpreter path.
+``/usr/bin/python`` as the interpreter path.
 
 To use shell commands in your Python scripts, look at the :mod:`subprocess` module.
+
+
+Editors and IDEs
+================
+
+There are a number of IDEs that support Python programming language.
+Many editors and IDEs provide syntax highlighting, debugging tools, and :pep:`8` checks.
+
+Please go to `Python Editors <https://wiki.python.org/moin/PythonEditors>`_ and
+`Integrated Development Environments <https://wiki.python.org/moin/IntegratedDevelopmentEnvironments>`_
+for a comprehensive list.

@@ -11,5 +11,3 @@ with a local index server, or without any index server at all.
 
    distutils.rst
    ensurepip.rst
-   venv.rst
-   zipapp.rst

@@ -1,4 +1,4 @@
-import unittest
+import unittest, sys
 from ctypes.test import need_symbol
 import test.support
 
@@ -20,6 +20,7 @@ class SimpleTypesTestCase(unittest.TestCase):
             pass
         else:
             set_conversion_mode(*self.prev_conv_mode)
+
 
     def test_subclasses(self):
         from ctypes import c_void_p, c_char_p
@@ -50,33 +51,37 @@ class SimpleTypesTestCase(unittest.TestCase):
 
     # XXX Replace by c_char_p tests
     def test_cstrings(self):
-        from ctypes import c_char_p
+        from ctypes import c_char_p, byref
 
         # c_char_p.from_param on a Python String packs the string
         # into a cparam object
-        s = b"123"
+        s = "123"
         self.assertIs(c_char_p.from_param(s)._obj, s)
 
         # new in 0.9.1: convert (encode) unicode to ascii
-        self.assertEqual(c_char_p.from_param(b"123")._obj, b"123")
-        self.assertRaises(TypeError, c_char_p.from_param, "123\377")
+        self.assertEqual(c_char_p.from_param(u"123")._obj, "123")
+        self.assertRaises(UnicodeEncodeError, c_char_p.from_param, u"123\377")
+
         self.assertRaises(TypeError, c_char_p.from_param, 42)
 
         # calling c_char_p.from_param with a c_char_p instance
         # returns the argument itself:
-        a = c_char_p(b"123")
+        a = c_char_p("123")
         self.assertIs(c_char_p.from_param(a), a)
 
     @need_symbol('c_wchar_p')
     def test_cw_strings(self):
-        from ctypes import c_wchar_p
+        from ctypes import byref, c_wchar_p
+        s = u"123"
+        if sys.platform == "win32":
+            self.assertTrue(c_wchar_p.from_param(s)._obj is s)
+            self.assertRaises(TypeError, c_wchar_p.from_param, 42)
 
-        c_wchar_p.from_param("123")
+            # new in 0.9.1: convert (decode) ascii to unicode
+            self.assertEqual(c_wchar_p.from_param("123")._obj, u"123")
+        self.assertRaises(UnicodeDecodeError, c_wchar_p.from_param, "123\377")
 
-        self.assertRaises(TypeError, c_wchar_p.from_param, 42)
-        self.assertRaises(TypeError, c_wchar_p.from_param, b"123\377")
-
-        pa = c_wchar_p.from_param(c_wchar_p("123"))
+        pa = c_wchar_p.from_param(c_wchar_p(u"123"))
         self.assertEqual(type(pa), c_wchar_p)
 
     def test_int_pointers(self):
@@ -99,7 +104,7 @@ class SimpleTypesTestCase(unittest.TestCase):
     def test_byref_pointer(self):
         # The from_param class method of POINTER(typ) classes accepts what is
         # returned by byref(obj), it type(obj) == typ
-        from ctypes import c_short, c_uint, c_int, c_long, POINTER, byref
+        from ctypes import c_short, c_uint, c_int, c_long, pointer, POINTER, byref
         LPINT = POINTER(c_int)
 
         LPINT.from_param(byref(c_int(42)))
@@ -197,7 +202,7 @@ class SimpleTypesTestCase(unittest.TestCase):
         class WorseStruct(Structure):
             @property
             def __dict__(self):
-                1/0
+                1/0.0
         with self.assertRaises(ZeroDivisionError):
             WorseStruct().__setstate__({}, b'foo')
 

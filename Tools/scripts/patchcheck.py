@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Check proposed changes for common issues."""
+#!/usr/bin/env python
 import re
 import sys
 import shutil
@@ -13,9 +12,9 @@ import untabify
 
 # Excluded directories which are copies of external libraries:
 # don't check their coding style
-EXCLUDE_DIRS = [os.path.join('Modules', '_ctypes', 'libffi_osx'),
+EXCLUDE_DIRS = [os.path.join('Modules', '_ctypes', 'libffi'),
+                os.path.join('Modules', '_ctypes', 'libffi_osx'),
                 os.path.join('Modules', '_ctypes', 'libffi_msvc'),
-                os.path.join('Modules', '_decimal', 'libmpdec'),
                 os.path.join('Modules', 'expat'),
                 os.path.join('Modules', 'zlib')]
 SRCDIR = sysconfig.get_config_var('srcdir')
@@ -34,11 +33,11 @@ def status(message, modal=False, info=None):
             sys.stdout.flush()
             result = fxn(*args, **kwargs)
             if not modal and not info:
-                print("done")
+                print "done"
             elif info:
-                print(info(result))
+                print info(result)
             else:
-                print("yes" if result else "NO")
+                print "yes" if result else "NO"
             return result
         return call_fxn
     return decorated_fxn
@@ -48,9 +47,7 @@ def get_git_branch():
     """Get the symbolic name for the current git branch"""
     cmd = "git rev-parse --abbrev-ref HEAD".split()
     try:
-        return subprocess.check_output(cmd,
-                                       stderr=subprocess.DEVNULL,
-                                       cwd=SRCDIR)
+        return subprocess.check_output(cmd, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError:
         return None
 
@@ -62,9 +59,7 @@ def get_git_upstream_remote():
     """
     cmd = "git remote get-url upstream".split()
     try:
-        subprocess.check_output(cmd,
-                                stderr=subprocess.DEVNULL,
-                                cwd=SRCDIR)
+        subprocess.check_output(cmd, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError:
         return "origin"
     return "upstream"
@@ -102,12 +97,11 @@ def changed_files(base_branch=None):
         else:
             cmd = 'git status --porcelain'
         filenames = []
-        with subprocess.Popen(cmd.split(),
-                              stdout=subprocess.PIPE,
-                              cwd=SRCDIR) as st:
+        st = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        try:
             for line in st.stdout:
                 line = line.decode().rstrip()
-                status_text, filename = line.split(maxsplit=1)
+                status_text, filename = line.split(None, 1)
                 status = set(status_text)
                 # modified, added or unmerged files
                 if not status.intersection('MAU'):
@@ -116,6 +110,8 @@ def changed_files(base_branch=None):
                     # file is renamed
                     filename = filename.split(' -> ', 2)[1].strip()
                 filenames.append(filename)
+        finally:
+            st.stdout.close()
     else:
         sys.exit('need a git checkout to get modified files')
 
@@ -142,12 +138,14 @@ def report_modified_files(file_paths):
         return "\n".join(lines)
 
 
-@status("Fixing Python file whitespace", info=report_modified_files)
+@status("Fixing whitespace", info=report_modified_files)
 def normalize_whitespace(file_paths):
     """Make sure that the whitespace for .py files have been normalized."""
     reindent.makebackup = False  # No need to create backups.
-    fixed = [path for path in file_paths if path.endswith('.py') and
-             reindent.check(os.path.join(SRCDIR, path))]
+    fixed = []
+    for path in (x for x in file_paths if x.endswith('.py')):
+        if reindent.check(os.path.join(SRCDIR, path)):
+            fixed.append(path)
     return fixed
 
 
@@ -182,7 +180,7 @@ def normalize_docs_whitespace(file_paths):
                     f.writelines(new_lines)
                 fixed.append(path)
         except Exception as err:
-            print('Cannot fix %s: %s' % (path, err))
+            print 'Cannot fix %s: %s' % (path, err)
     return fixed
 
 
@@ -204,42 +202,6 @@ def reported_news(file_paths):
     return any(p.startswith(os.path.join('Misc', 'NEWS.d', 'next'))
                for p in file_paths)
 
-@status("configure regenerated", modal=True, info=str)
-def regenerated_configure(file_paths):
-    """Check if configure has been regenerated."""
-    if 'configure.ac' in file_paths:
-        return "yes" if 'configure' in file_paths else "no"
-    else:
-        return "not needed"
-
-@status("pyconfig.h.in regenerated", modal=True, info=str)
-def regenerated_pyconfig_h_in(file_paths):
-    """Check if pyconfig.h.in has been regenerated."""
-    if 'configure.ac' in file_paths:
-        return "yes" if 'pyconfig.h.in' in file_paths else "no"
-    else:
-        return "not needed"
-
-def travis(pull_request):
-    if pull_request == 'false':
-        print('Not a pull request; skipping')
-        return
-    base_branch = get_base_branch()
-    file_paths = changed_files(base_branch)
-    python_files = [fn for fn in file_paths if fn.endswith('.py')]
-    c_files = [fn for fn in file_paths if fn.endswith(('.c', '.h'))]
-    doc_files = [fn for fn in file_paths if fn.startswith('Doc') and
-                 fn.endswith(('.rst', '.inc'))]
-    fixed = []
-    fixed.extend(normalize_whitespace(python_files))
-    fixed.extend(normalize_c_whitespace(c_files))
-    fixed.extend(normalize_docs_whitespace(doc_files))
-    if not fixed:
-        print('No whitespace issues found')
-    else:
-        print(f'Please fix the {len(fixed)} file(s) with whitespace issues')
-        print('(on UNIX you can run `make patchcheck` to make the fixes)')
-        sys.exit(1)
 
 def main():
     base_branch = get_base_branch()
@@ -261,25 +223,13 @@ def main():
     credit_given(misc_files)
     # Misc/NEWS changed.
     reported_news(misc_files)
-    # Regenerated configure, if necessary.
-    regenerated_configure(file_paths)
-    # Regenerated pyconfig.h.in, if necessary.
-    regenerated_pyconfig_h_in(file_paths)
 
     # Test suite run and passed.
     if python_files or c_files:
         end = " and check for refleaks?" if c_files else "?"
-        print()
-        print("Did you run the test suite" + end)
+        print
+        print "Did you run the test suite" + end
 
 
 if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--travis',
-                        help='Perform pass/fail checks')
-    args = parser.parse_args()
-    if args.travis:
-        travis(args.travis)
-    else:
-        main()
+    main()

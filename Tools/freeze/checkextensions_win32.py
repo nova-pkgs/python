@@ -130,9 +130,8 @@ def parse_dsp(dsp):
     ret = []
     dsp_path, dsp_name = os.path.split(dsp)
     try:
-        with open(dsp, "r") as fp:
-            lines = fp.readlines()
-    except IOError as msg:
+        lines = open(dsp, "r").readlines()
+    except IOError, msg:
         sys.stderr.write("%s: %s\n" % (dsp, msg))
         return None
     for line in lines:

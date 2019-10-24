@@ -3,7 +3,6 @@
 
 .. module:: symbol
    :synopsis: Constants representing internal nodes of the parse tree.
-
 .. sectionauthor:: Fred L. Drake, Jr. <fdrake@acm.org>
 
 **Source code:** :source:`Lib/symbol.py`
@@ -25,3 +24,4 @@ This module also provides one additional data object:
    Dictionary mapping the numeric values of the constants defined in this module
    back to name strings, allowing more human-readable representation of parse trees
    to be generated.
+

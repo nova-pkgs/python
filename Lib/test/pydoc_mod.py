@@ -3,7 +3,7 @@
 __author__ = "Benjamin Peterson"
 __credits__ = "Nobody"
 __version__ = "1.2.3.4"
-__xyz__ = "X, Y and Z"
+
 
 class A:
     """Hello and goodbye"""
@@ -12,7 +12,7 @@ class A:
         pass
 
 class B(object):
-    NO_MEANING: str = "eggs"
+    NO_MEANING = "eggs"
     pass
 
 class C(object):

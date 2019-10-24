@@ -5,7 +5,7 @@ import sys, inspect
 # line 5
 
 # line 7
-def spam(a, /, b, c, d=3, e=4, f=5, *g, **h):
+def spam(a, b, c, d=3, (e, (f,))=(4, (5,)), *g, **h):
     eggs(b + d, c + f)
 
 # line 11
@@ -15,7 +15,7 @@ def eggs(x, y):
     fr = inspect.currentframe()
     st = inspect.stack()
     p = x
-    q = y / 0
+    q = y // 0
 
 # line 20
 class StupidGit:
@@ -45,19 +45,9 @@ class StupidGit:
             self.ex = sys.exc_info()
             self.tr = inspect.trace()
 
-    @property
-    def contradiction(self):
-        'The automatic gainsaying.'
-        pass
-
-# line 53
+# line 48
 class MalodorousPervert(StupidGit):
-    def abuse(self, a, b, c):
-        pass
-
-    @property
-    def contradiction(self):
-        pass
+    pass
 
 Tit = MalodorousPervert
 
@@ -65,14 +55,6 @@ class ParrotDroppings:
     pass
 
 class FesteringGob(MalodorousPervert, ParrotDroppings):
-    def abuse(self, a, b, c):
-        pass
-
-    @property
-    def contradiction(self):
-        pass
-
-async def lobbest(grenade):
     pass
 
 currentframe = inspect.currentframe()
@@ -80,14 +62,3 @@ try:
     raise Exception()
 except:
     tb = sys.exc_info()[2]
-
-class Callable:
-    def __call__(self, *args):
-        return args
-
-    def as_method_of(self, obj):
-        from types import MethodType
-        return MethodType(self, obj)
-
-custom_method = Callable().as_method_of(42)
-del Callable

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 # Selectively preprocess #ifdef / #ifndef statements.
 # Usage:
@@ -45,8 +45,9 @@ def main():
         if filename == '-':
             process(sys.stdin, sys.stdout)
         else:
-            with open(filename) as f:
-                process(f, sys.stdout)
+            f = open(filename, 'r')
+            process(f, sys.stdout)
+            f.close()
 
 def process(fpi, fpo):
     keywords = ('if', 'ifdef', 'ifndef', 'else', 'endif')

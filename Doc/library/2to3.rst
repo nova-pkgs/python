@@ -109,7 +109,7 @@ alternate directory for processed output files to be written to.  The
 :option:`!-n` flag is required when using this as backup files do not make sense
 when not overwriting the input files.
 
-.. versionadded:: 3.2.3
+.. versionadded:: 2.7.3
    The :option:`!-o` option was added.
 
 The :option:`!-W` or :option:`!--write-unchanged-files` flag tells 2to3 to always
@@ -118,7 +118,7 @@ useful with :option:`!-o` so that an entire Python source tree is copied with
 translation from one directory to another.
 This option implies the :option:`!-w` flag as it would not make sense otherwise.
 
-.. versionadded:: 3.2.3
+.. versionadded:: 2.7.3
    The :option:`!-W` flag was added.
 
 The :option:`!--add-suffix` option specifies a string to append to all output
@@ -131,7 +131,7 @@ are not necessary when writing to different filenames.  Example:
 
 Will cause a converted file named ``example.py3`` to be written.
 
-.. versionadded:: 3.2.3
+.. versionadded:: 2.7.3
    The :option:`!--add-suffix` option was added.
 
 To translate an entire project from one directory tree to another use:
@@ -215,7 +215,7 @@ and off individually.  They are described here in more detail.
 
 .. 2to3fixer:: exec
 
-   Converts the ``exec`` statement to the :func:`exec` function.
+   Converts the :keyword:`exec` statement to the :func:`exec` function.
 
 .. 2to3fixer:: execfile
 
@@ -288,8 +288,7 @@ and off individually.  They are described here in more detail.
 
    Fixes duplicate types in the second argument of :func:`isinstance`.  For
    example, ``isinstance(x, (int, int))`` is converted to ``isinstance(x,
-   int)`` and ``isinstance(x, (int, float, int))`` is converted to
-   ``isinstance(x, (int, float))``.
+   (int))``.
 
 .. 2to3fixer:: itertools_imports
 
@@ -330,7 +329,7 @@ and off individually.  They are described here in more detail.
 .. 2to3fixer:: next
 
    Converts the use of iterator's :meth:`~iterator.next` methods to the
-   :func:`next` function.  It also renames :meth:`next` methods to
+   :func:`next` function.  It also renames :meth:`~iterator.next` methods to
    :meth:`~iterator.__next__`.
 
 .. 2to3fixer:: nonzero
@@ -341,25 +340,6 @@ and off individually.  They are described here in more detail.
 
    Converts octal literals into the new syntax.
 
-.. 2to3fixer:: operator
-
-   Converts calls to various functions in the :mod:`operator` module to other,
-   but equivalent, function calls.  When needed, the appropriate ``import``
-   statements are added, e.g. ``import collections.abc``.  The following mapping
-   are made:
-
-   ==================================  =============================================
-   From                                To
-   ==================================  =============================================
-   ``operator.isCallable(obj)``        ``callable(obj)``
-   ``operator.sequenceIncludes(obj)``  ``operator.contains(obj)``
-   ``operator.isSequenceType(obj)``    ``isinstance(obj, collections.abc.Sequence)``
-   ``operator.isMappingType(obj)``     ``isinstance(obj, collections.abc.Mapping)``
-   ``operator.isNumberType(obj)``      ``isinstance(obj, numbers.Number)``
-   ``operator.repeat(obj, n)``         ``operator.mul(obj, n)``
-   ``operator.irepeat(obj, n)``        ``operator.imul(obj, n)``
-   ==================================  =============================================
-
 .. 2to3fixer:: paren
 
    Add extra parenthesis where they are required in list comprehensions.  For
@@ -367,13 +347,13 @@ and off individually.  They are described here in more detail.
 
 .. 2to3fixer:: print
 
-   Converts the ``print`` statement to the :func:`print` function.
+   Converts the :keyword:`print` statement to the :func:`print` function.
 
 .. 2to3fixer:: raise
 
    Converts ``raise E, V`` to ``raise E(V)``, and ``raise E, V, T`` to ``raise
    E(V).with_traceback(T)``.  If ``E`` is a tuple, the translation will be
-   incorrect because substituting tuples for exceptions has been removed in 3.0.
+   incorrect because substituting tuples for exceptions has been removed in Python 3.
 
 .. 2to3fixer:: raw_input
 
@@ -382,10 +362,6 @@ and off individually.  They are described here in more detail.
 .. 2to3fixer:: reduce
 
    Handles the move of :func:`reduce` to :func:`functools.reduce`.
-
-.. 2to3fixer:: reload
-
-   Converts :func:`reload` to :func:`importlib.reload`.
 
 .. 2to3fixer:: renames
 
@@ -457,14 +433,10 @@ and off individually.  They are described here in more detail.
 
 .. module:: lib2to3
    :synopsis: the 2to3 library
-
 .. moduleauthor:: Guido van Rossum
 .. moduleauthor:: Collin Winter
 .. moduleauthor:: Benjamin Peterson <benjamin@python.org>
 
-**Source code:** :source:`Lib/lib2to3/`
-
---------------
 
 .. note::
 

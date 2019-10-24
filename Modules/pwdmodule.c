@@ -2,15 +2,10 @@
 /* UNIX password file access module */
 
 #include "Python.h"
+#include "structseq.h"
 #include "posixmodule.h"
 
 #include <pwd.h>
-
-#include "clinic/pwdmodule.c.h"
-/*[clinic input]
-module pwd
-[clinic start generated code]*/
-/*[clinic end generated code: output=da39a3ee5e6b4b0d input=60f628ef356b97b6]*/
 
 static PyStructSequence_Field struct_pwd_type_fields[] = {
     {"pw_name", "user name"},
@@ -50,15 +45,11 @@ exception is raised if the entry asked for cannot be found.");
 static int initialized;
 static PyTypeObject StructPwdType;
 
-#define DEFAULT_BUFFER_SIZE 1024
-
 static void
-sets(PyObject *v, int i, const char* val)
+sets(PyObject *v, int i, char* val)
 {
-  if (val) {
-      PyObject *o = PyUnicode_DecodeFSDefault(val);
-      PyStructSequence_SET_ITEM(v, i, o);
-  }
+  if (val)
+      PyStructSequence_SET_ITEM(v, i, PyString_FromString(val));
   else {
       PyStructSequence_SET_ITEM(v, i, Py_None);
       Py_INCREF(Py_None);
@@ -73,21 +64,21 @@ mkpwent(struct passwd *p)
     if (v == NULL)
         return NULL;
 
-#define SETI(i,val) PyStructSequence_SET_ITEM(v, i, PyLong_FromLong((long) val))
+#define SETI(i,val) PyStructSequence_SET_ITEM(v, i, PyInt_FromLong((long) val))
 #define SETS(i,val) sets(v, i, val)
 
     SETS(setIndex++, p->pw_name);
-#if defined(HAVE_STRUCT_PASSWD_PW_PASSWD) && !defined(__ANDROID__)
+#ifdef __VMS
+    SETS(setIndex++, "");
+#else
     SETS(setIndex++, p->pw_passwd);
-#else
-    SETS(setIndex++, "");
 #endif
-    PyStructSequence_SET_ITEM(v, setIndex++, _PyLong_FromUid(p->pw_uid));
-    PyStructSequence_SET_ITEM(v, setIndex++, _PyLong_FromGid(p->pw_gid));
-#if defined(HAVE_STRUCT_PASSWD_PW_GECOS)
-    SETS(setIndex++, p->pw_gecos);
-#else
+    PyStructSequence_SET_ITEM(v, setIndex++, _PyInt_FromUid(p->pw_uid));
+    PyStructSequence_SET_ITEM(v, setIndex++, _PyInt_FromGid(p->pw_gid));
+#ifdef __VMS
     SETS(setIndex++, "");
+#else
+    SETS(setIndex++, p->pw_gecos);
 #endif
     SETS(setIndex++, p->pw_dir);
     SETS(setIndex++, p->pw_shell);
@@ -103,190 +94,76 @@ mkpwent(struct passwd *p)
     return v;
 }
 
-/*[clinic input]
-pwd.getpwuid
-
-    uidobj: object
-    /
-
-Return the password database entry for the given numeric user ID.
-
-See `help(pwd)` for more on password database entries.
-[clinic start generated code]*/
+PyDoc_STRVAR(pwd_getpwuid__doc__,
+"getpwuid(uid) -> (pw_name,pw_passwd,pw_uid,\n\
+                  pw_gid,pw_gecos,pw_dir,pw_shell)\n\
+Return the password database entry for the given numeric user ID.\n\
+See help(pwd) for more on password database entries.");
 
 static PyObject *
-pwd_getpwuid(PyObject *module, PyObject *uidobj)
-/*[clinic end generated code: output=c4ee1d4d429b86c4 input=ae64d507a1c6d3e8]*/
+pwd_getpwuid(PyObject *self, PyObject *args)
 {
-    PyObject *retval = NULL;
     uid_t uid;
-    int nomem = 0;
     struct passwd *p;
-    char *buf = NULL, *buf2 = NULL;
-
-    if (!_Py_Uid_Converter(uidobj, &uid)) {
+    if (!PyArg_ParseTuple(args, "O&:getpwuid", _Py_Uid_Converter, &uid)) {
         if (PyErr_ExceptionMatches(PyExc_OverflowError))
             PyErr_Format(PyExc_KeyError,
                          "getpwuid(): uid not found");
         return NULL;
     }
-#ifdef HAVE_GETPWUID_R
-    int status;
-    Py_ssize_t bufsize;
-    /* Note: 'pwd' will be used via pointer 'p' on getpwuid_r success. */
-    struct passwd pwd;
-
-    Py_BEGIN_ALLOW_THREADS
-    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if (bufsize == -1) {
-        bufsize = DEFAULT_BUFFER_SIZE;
-    }
-
-    while(1) {
-        buf2 = PyMem_RawRealloc(buf, bufsize);
-        if (buf2 == NULL) {
-            p = NULL;
-            nomem = 1;
-            break;
-        }
-        buf = buf2;
-        status = getpwuid_r(uid, &pwd, buf, bufsize, &p);
-        if (status != 0) {
-            p = NULL;
-        }
-        if (p != NULL || status != ERANGE) {
-            break;
-        }
-        if (bufsize > (PY_SSIZE_T_MAX >> 1)) {
-            nomem = 1;
-            break;
-        }
-        bufsize <<= 1;
-    }
-
-    Py_END_ALLOW_THREADS
-#else
-    p = getpwuid(uid);
-#endif
-    if (p == NULL) {
-        PyMem_RawFree(buf);
-        if (nomem == 1) {
-            return PyErr_NoMemory();
-        }
-        PyObject *uid_obj = _PyLong_FromUid(uid);
-        if (uid_obj == NULL)
-            return NULL;
-        PyErr_Format(PyExc_KeyError,
-                     "getpwuid(): uid not found: %S", uid_obj);
-        Py_DECREF(uid_obj);
+    if ((p = getpwuid(uid)) == NULL) {
+        if (uid < 0)
+            PyErr_Format(PyExc_KeyError,
+                         "getpwuid(): uid not found: %ld", (long)uid);
+        else
+            PyErr_Format(PyExc_KeyError,
+                         "getpwuid(): uid not found: %lu", (unsigned long)uid);
         return NULL;
     }
-    retval = mkpwent(p);
-#ifdef HAVE_GETPWUID_R
-    PyMem_RawFree(buf);
-#endif
-    return retval;
+    return mkpwent(p);
 }
 
-/*[clinic input]
-pwd.getpwnam
-
-    name: unicode
-    /
-
-Return the password database entry for the given user name.
-
-See `help(pwd)` for more on password database entries.
-[clinic start generated code]*/
+PyDoc_STRVAR(pwd_getpwnam__doc__,
+"getpwnam(name) -> (pw_name,pw_passwd,pw_uid,\n\
+                    pw_gid,pw_gecos,pw_dir,pw_shell)\n\
+Return the password database entry for the given user name.\n\
+See help(pwd) for more on password database entries.");
 
 static PyObject *
-pwd_getpwnam_impl(PyObject *module, PyObject *name)
-/*[clinic end generated code: output=359ce1ddeb7a824f input=a6aeb5e3447fb9e0]*/
+pwd_getpwnam(PyObject *self, PyObject *args)
 {
-    char *buf = NULL, *buf2 = NULL, *name_chars;
-    int nomem = 0;
+    char *name;
     struct passwd *p;
-    PyObject *bytes, *retval = NULL;
-
-    if ((bytes = PyUnicode_EncodeFSDefault(name)) == NULL)
+    if (!PyArg_ParseTuple(args, "s:getpwnam", &name))
         return NULL;
-    /* check for embedded null bytes */
-    if (PyBytes_AsStringAndSize(bytes, &name_chars, NULL) == -1)
-        goto out;
-#ifdef HAVE_GETPWNAM_R
-    int status;
-    Py_ssize_t bufsize;
-    /* Note: 'pwd' will be used via pointer 'p' on getpwnam_r success. */
-    struct passwd pwd;
-
-    Py_BEGIN_ALLOW_THREADS
-    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if (bufsize == -1) {
-        bufsize = DEFAULT_BUFFER_SIZE;
+    if ((p = getpwnam(name)) == NULL) {
+        PyErr_Format(PyExc_KeyError,
+                     "getpwnam(): name not found: %s", name);
+        return NULL;
     }
-
-    while(1) {
-        buf2 = PyMem_RawRealloc(buf, bufsize);
-        if (buf2 == NULL) {
-            p = NULL;
-            nomem = 1;
-            break;
-        }
-        buf = buf2;
-        status = getpwnam_r(name_chars, &pwd, buf, bufsize, &p);
-        if (status != 0) {
-            p = NULL;
-        }
-        if (p != NULL || status != ERANGE) {
-            break;
-        }
-        if (bufsize > (PY_SSIZE_T_MAX >> 1)) {
-            nomem = 1;
-            break;
-        }
-        bufsize <<= 1;
-    }
-
-    Py_END_ALLOW_THREADS
-#else
-    p = getpwnam(name_chars);
-#endif
-    if (p == NULL) {
-        if (nomem == 1) {
-            PyErr_NoMemory();
-        }
-        else {
-            PyErr_Format(PyExc_KeyError,
-                         "getpwnam(): name not found: %R", name);
-        }
-        goto out;
-    }
-    retval = mkpwent(p);
-out:
-    PyMem_RawFree(buf);
-    Py_DECREF(bytes);
-    return retval;
+    return mkpwent(p);
 }
 
 #ifdef HAVE_GETPWENT
-/*[clinic input]
-pwd.getpwall
-
-Return a list of all available password database entries, in arbitrary order.
-
-See help(pwd) for more on password database entries.
-[clinic start generated code]*/
+PyDoc_STRVAR(pwd_getpwall__doc__,
+"getpwall() -> list_of_entries\n\
+Return a list of all available password database entries, \
+in arbitrary order.\n\
+See help(pwd) for more on password database entries.");
 
 static PyObject *
-pwd_getpwall_impl(PyObject *module)
-/*[clinic end generated code: output=4853d2f5a0afac8a input=d7ecebfd90219b85]*/
+pwd_getpwall(PyObject *self)
 {
     PyObject *d;
     struct passwd *p;
     if ((d = PyList_New(0)) == NULL)
         return NULL;
+#if defined(PYOS_OS2) && defined(PYCC_GCC)
+    if ((p = getpwuid(0)) != NULL) {
+#else
     setpwent();
     while ((p = getpwent()) != NULL) {
+#endif
         PyObject *v = mkpwent(p);
         if (v == NULL || PyList_Append(d, v) != 0) {
             Py_XDECREF(v);
@@ -302,42 +179,30 @@ pwd_getpwall_impl(PyObject *module)
 #endif
 
 static PyMethodDef pwd_methods[] = {
-    PWD_GETPWUID_METHODDEF
-    PWD_GETPWNAM_METHODDEF
+    {"getpwuid",        pwd_getpwuid, METH_VARARGS, pwd_getpwuid__doc__},
+    {"getpwnam",        pwd_getpwnam, METH_VARARGS, pwd_getpwnam__doc__},
 #ifdef HAVE_GETPWENT
-    PWD_GETPWALL_METHODDEF
+    {"getpwall",        (PyCFunction)pwd_getpwall,
+        METH_NOARGS,  pwd_getpwall__doc__},
 #endif
     {NULL,              NULL}           /* sentinel */
 };
 
-static struct PyModuleDef pwdmodule = {
-    PyModuleDef_HEAD_INIT,
-    "pwd",
-    pwd__doc__,
-    -1,
-    pwd_methods,
-    NULL,
-    NULL,
-    NULL,
-    NULL
-};
-
-
 PyMODINIT_FUNC
-PyInit_pwd(void)
+initpwd(void)
 {
     PyObject *m;
-    m = PyModule_Create(&pwdmodule);
+    m = Py_InitModule3("pwd", pwd_methods, pwd__doc__);
     if (m == NULL)
-        return NULL;
+        return;
 
-    if (!initialized) {
-        if (PyStructSequence_InitType2(&StructPwdType,
-                                       &struct_pwd_type_desc) < 0)
-            return NULL;
-        initialized = 1;
-    }
+    if (!initialized)
+        PyStructSequence_InitType(&StructPwdType,
+                                  &struct_pwd_type_desc);
     Py_INCREF((PyObject *) &StructPwdType);
     PyModule_AddObject(m, "struct_passwd", (PyObject *) &StructPwdType);
-    return m;
+    /* And for b/w compatibility (this was defined by mistake): */
+    Py_INCREF((PyObject *) &StructPwdType);
+    PyModule_AddObject(m, "struct_pwent", (PyObject *) &StructPwdType);
+    initialized = 1;
 }

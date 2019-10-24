@@ -17,16 +17,16 @@ Syntax Errors
 Syntax errors, also known as parsing errors, are perhaps the most common kind of
 complaint you get while you are still learning Python::
 
-   >>> while True print('Hello world')
+   >>> while True print 'Hello world'
      File "<stdin>", line 1
-       while True print('Hello world')
+       while True print 'Hello world'
                       ^
    SyntaxError: invalid syntax
 
 The parser repeats the offending line and displays a little 'arrow' pointing at
 the earliest point in the line where the error was detected.  The error is
 caused by (or at least detected at) the token *preceding* the arrow: in the
-example, the error is detected at the function :func:`print`, since a colon
+example, the error is detected at the keyword :keyword:`print`, since a colon
 (``':'``) is missing before it.  File name and line number are printed so you
 know where to look in case the input came from a script.
 
@@ -45,7 +45,7 @@ programs, however, and result in error messages as shown here::
    >>> 10 * (1/0)
    Traceback (most recent call last):
      File "<stdin>", line 1, in <module>
-   ZeroDivisionError: division by zero
+   ZeroDivisionError: integer division or modulo by zero
    >>> 4 + spam*3
    Traceback (most recent call last):
      File "<stdin>", line 1, in <module>
@@ -53,7 +53,7 @@ programs, however, and result in error messages as shown here::
    >>> '2' + 2
    Traceback (most recent call last):
      File "<stdin>", line 1, in <module>
-   TypeError: Can't convert 'int' object to str implicitly
+   TypeError: cannot concatenate 'str' and 'int' objects
 
 The last line of the error message indicates what happened. Exceptions come in
 different types, and the type is printed as part of the message: the types in
@@ -87,10 +87,10 @@ is signalled by raising the :exc:`KeyboardInterrupt` exception. ::
 
    >>> while True:
    ...     try:
-   ...         x = int(input("Please enter a number: "))
+   ...         x = int(raw_input("Please enter a number: "))
    ...         break
    ...     except ValueError:
-   ...         print("Oops!  That was no valid number.  Try again...")
+   ...         print "Oops!  That was no valid number.  Try again..."
    ...
 
 The :keyword:`try` statement works as follows.
@@ -114,38 +114,19 @@ The :keyword:`try` statement works as follows.
 A :keyword:`try` statement may have more than one except clause, to specify
 handlers for different exceptions.  At most one handler will be executed.
 Handlers only handle exceptions that occur in the corresponding try clause, not
-in other handlers of the same :keyword:`!try` statement.  An except clause may
+in other handlers of the same :keyword:`try` statement.  An except clause may
 name multiple exceptions as a parenthesized tuple, for example::
 
    ... except (RuntimeError, TypeError, NameError):
    ...     pass
 
-A class in an :keyword:`except` clause is compatible with an exception if it is
-the same class or a base class thereof (but not the other way around --- an
-except clause listing a derived class is not compatible with a base class).  For
-example, the following code will print B, C, D in that order::
-
-   class B(Exception):
-       pass
-
-   class C(B):
-       pass
-
-   class D(C):
-       pass
-
-   for cls in [B, C, D]:
-       try:
-           raise cls()
-       except D:
-           print("D")
-       except C:
-           print("C")
-       except B:
-           print("B")
-
-Note that if the except clauses were reversed (with ``except B`` first), it
-would have printed B, B, B --- the first matching except clause is triggered.
+Note that the parentheses around this tuple are required, because
+``except ValueError, e:`` was the syntax used for what is normally
+written as ``except ValueError as e:`` in modern Python (described
+below). The old syntax is still supported for backwards compatibility.
+This means ``except RuntimeError, TypeError`` is not equivalent to
+``except (RuntimeError, TypeError):`` but to ``except RuntimeError as
+TypeError:`` which is not what you want.
 
 The last except clause may omit the exception name(s), to serve as a wildcard.
 Use this with extreme caution, since it is easy to mask a real programming error
@@ -158,12 +139,12 @@ the exception (allowing a caller to handle the exception as well)::
        f = open('myfile.txt')
        s = f.readline()
        i = int(s.strip())
-   except OSError as err:
-       print("OS error: {0}".format(err))
+   except IOError as e:
+       print "I/O error({0}): {1}".format(e.errno, e.strerror)
    except ValueError:
-       print("Could not convert data to an integer.")
+       print "Could not convert data to an integer."
    except:
-       print("Unexpected error:", sys.exc_info()[0])
+       print "Unexpected error:", sys.exc_info()[0]
        raise
 
 The :keyword:`try` ... :keyword:`except` statement has an optional *else
@@ -174,46 +155,47 @@ example::
    for arg in sys.argv[1:]:
        try:
            f = open(arg, 'r')
-       except OSError:
-           print('cannot open', arg)
+       except IOError:
+           print 'cannot open', arg
        else:
-           print(arg, 'has', len(f.readlines()), 'lines')
+           print arg, 'has', len(f.readlines()), 'lines'
            f.close()
 
-The use of the :keyword:`!else` clause is better than adding additional code to
+The use of the :keyword:`else` clause is better than adding additional code to
 the :keyword:`try` clause because it avoids accidentally catching an exception
-that wasn't raised by the code being protected by the :keyword:`!try` ...
-:keyword:`!except` statement.
+that wasn't raised by the code being protected by the :keyword:`try` ...
+:keyword:`except` statement.
 
 When an exception occurs, it may have an associated value, also known as the
 exception's *argument*. The presence and type of the argument depend on the
 exception type.
 
-The except clause may specify a variable after the exception name.  The
-variable is bound to an exception instance with the arguments stored in
+The except clause may specify a variable after the exception name (or tuple).
+The variable is bound to an exception instance with the arguments stored in
 ``instance.args``.  For convenience, the exception instance defines
 :meth:`__str__` so the arguments can be printed directly without having to
-reference ``.args``.  One may also instantiate an exception first before
-raising it and add any attributes to it as desired. ::
+reference ``.args``.
+
+One may also instantiate an exception first before raising it and add any
+attributes to it as desired. ::
 
    >>> try:
    ...     raise Exception('spam', 'eggs')
    ... except Exception as inst:
-   ...     print(type(inst))    # the exception instance
-   ...     print(inst.args)     # arguments stored in .args
-   ...     print(inst)          # __str__ allows args to be printed directly,
-   ...                          # but may be overridden in exception subclasses
-   ...     x, y = inst.args     # unpack args
-   ...     print('x =', x)
-   ...     print('y =', y)
+   ...     print type(inst)     # the exception instance
+   ...     print inst.args      # arguments stored in .args
+   ...     print inst           # __str__ allows args to be printed directly
+   ...     x, y = inst.args
+   ...     print 'x =', x
+   ...     print 'y =', y
    ...
-   <class 'Exception'>
+   <type 'exceptions.Exception'>
    ('spam', 'eggs')
    ('spam', 'eggs')
    x = spam
    y = eggs
 
-If an exception has arguments, they are printed as the last part ('detail') of
+If an exception has an argument, it is printed as the last part ('detail') of
 the message for unhandled exceptions.
 
 Exception handlers don't just handle exceptions if they occur immediately in the
@@ -225,10 +207,10 @@ indirectly) in the try clause. For example::
    ...
    >>> try:
    ...     this_fails()
-   ... except ZeroDivisionError as err:
-   ...     print('Handling run-time error:', err)
+   ... except ZeroDivisionError as detail:
+   ...     print 'Handling run-time error:', detail
    ...
-   Handling run-time error: division by zero
+   Handling run-time error: integer division or modulo by zero
 
 
 .. _tut-raising:
@@ -246,10 +228,7 @@ exception to occur. For example::
 
 The sole argument to :keyword:`raise` indicates the exception to be raised.
 This must be either an exception instance or an exception class (a class that
-derives from :class:`Exception`).  If an exception class is passed, it will
-be implicitly instantiated by calling its constructor with no arguments::
-
-   raise ValueError  # shorthand for 'raise ValueError()'
+derives from :class:`Exception`).
 
 If you need to determine whether an exception was raised but don't intend to
 handle it, a simpler form of the :keyword:`raise` statement allows you to
@@ -258,7 +237,7 @@ re-raise the exception::
    >>> try:
    ...     raise NameError('HiThere')
    ... except NameError:
-   ...     print('An exception flew by!')
+   ...     print 'An exception flew by!'
    ...     raise
    ...
    An exception flew by!
@@ -274,7 +253,29 @@ User-defined Exceptions
 
 Programs may name their own exceptions by creating a new exception class (see
 :ref:`tut-classes` for more about Python classes).  Exceptions should typically
-be derived from the :exc:`Exception` class, either directly or indirectly.
+be derived from the :exc:`Exception` class, either directly or indirectly.  For
+example::
+
+   >>> class MyError(Exception):
+   ...     def __init__(self, value):
+   ...         self.value = value
+   ...     def __str__(self):
+   ...         return repr(self.value)
+   ...
+   >>> try:
+   ...     raise MyError(2*2)
+   ... except MyError as e:
+   ...     print 'My exception occurred, value:', e.value
+   ...
+   My exception occurred, value: 4
+   >>> raise MyError('oops!')
+   Traceback (most recent call last):
+     File "<stdin>", line 1, in <module>
+   __main__.MyError: 'oops!'
+
+In this example, the default :meth:`__init__` of :class:`Exception` has been
+overridden.  The new behavior simply creates the *value* attribute.  This
+replaces the default behavior of creating the *args* attribute.
 
 Exception classes can be defined which do anything any other class can do, but
 are usually kept simple, often only offering a number of attributes that allow
@@ -291,28 +292,28 @@ to create specific exception classes for different error conditions::
        """Exception raised for errors in the input.
 
        Attributes:
-           expression -- input expression in which the error occurred
-           message -- explanation of the error
+           expr -- input expression in which the error occurred
+           msg  -- explanation of the error
        """
 
-       def __init__(self, expression, message):
-           self.expression = expression
-           self.message = message
+       def __init__(self, expr, msg):
+           self.expr = expr
+           self.msg = msg
 
    class TransitionError(Error):
        """Raised when an operation attempts a state transition that's not
        allowed.
 
        Attributes:
-           previous -- state at beginning of transition
+           prev -- state at beginning of transition
            next -- attempted new state
-           message -- explanation of why the specific transition is not allowed
+           msg  -- explanation of why the specific transition is not allowed
        """
 
-       def __init__(self, previous, next, message):
-           self.previous = previous
+       def __init__(self, prev, next, msg):
+           self.prev = prev
            self.next = next
-           self.message = message
+           self.msg = msg
 
 Most exceptions are defined with names that end in "Error", similar to the
 naming of the standard exceptions.
@@ -334,48 +335,36 @@ example::
    >>> try:
    ...     raise KeyboardInterrupt
    ... finally:
-   ...     print('Goodbye, world!')
+   ...     print 'Goodbye, world!'
    ...
    Goodbye, world!
    Traceback (most recent call last):
      File "<stdin>", line 2, in <module>
    KeyboardInterrupt
 
-If a :keyword:`finally` clause is present, the :keyword:`finally` clause will execute as the last task before the :keyword:`try` statement completes. The :keyword:`finally` clause runs whether or not the :keyword:`try` statement produces an exception. The following points discuss more complex cases when an exception occurs:
-
-* If an exception occurs during execution of the :keyword:`!try` clause, the exception may be handled by an :keyword:`except` clause. If the exception is not handled by an :keyword:`except` clause, the exception is re-raised after the :keyword:`!finally` clause has been executed.
-
-* An exception could occur during execution of an :keyword:`!except` or :keyword:`!else` clause. Again, the exception is re-raised after the :keyword:`!finally` clause has been executed.
-
-* If the :keyword:`!try` statement reaches a :keyword:`break`, :keyword:`continue` or :keyword:`return` statement, the :keyword:`finally` clause will execute just prior to the :keyword:`break`, :keyword:`continue` or :keyword:`return` statement's execution.
-
-* If a :keyword:`finally` clause includes a :keyword:`return` statement, the :keyword:`finally` clause's :keyword:`return` statement will execute before, and instead of, the :keyword:`return` statement in a :keyword:`try` clause.
-
-For example::
-
-   >>> def bool_return():
-   ...     try:
-   ...         return True
-   ...     finally:
-   ...         return False
-   ...
-   >>> bool_return()
-   False
-
-A more complicated example::
+A *finally clause* is always executed before leaving the :keyword:`try`
+statement, whether an exception has occurred or not. When an exception has
+occurred in the :keyword:`try` clause and has not been handled by an
+:keyword:`except` clause (or it has occurred in an :keyword:`except` or
+:keyword:`else` clause), it is re-raised after the :keyword:`finally` clause has
+been executed.  The :keyword:`finally` clause is also executed "on the way out"
+when any other clause of the :keyword:`try` statement is left via a
+:keyword:`break`, :keyword:`continue` or :keyword:`return` statement.  A more
+complicated example (having :keyword:`except` and :keyword:`finally` clauses in
+the same :keyword:`try` statement works as of Python 2.5)::
 
    >>> def divide(x, y):
    ...     try:
    ...         result = x / y
    ...     except ZeroDivisionError:
-   ...         print("division by zero!")
+   ...         print "division by zero!"
    ...     else:
-   ...         print("result is", result)
+   ...         print "result is", result
    ...     finally:
-   ...         print("executing finally clause")
+   ...         print "executing finally clause"
    ...
    >>> divide(2, 1)
-   result is 2.0
+   result is 2
    executing finally clause
    >>> divide(2, 0)
    division by zero!
@@ -389,7 +378,7 @@ A more complicated example::
 
 As you can see, the :keyword:`finally` clause is executed in any event.  The
 :exc:`TypeError` raised by dividing two strings is not handled by the
-:keyword:`except` clause and therefore re-raised after the :keyword:`!finally`
+:keyword:`except` clause and therefore re-raised after the :keyword:`finally`
 clause has been executed.
 
 In real world applications, the :keyword:`finally` clause is useful for
@@ -408,20 +397,20 @@ succeeded or failed. Look at the following example, which tries to open a file
 and print its contents to the screen. ::
 
    for line in open("myfile.txt"):
-       print(line, end="")
+       print line,
 
 The problem with this code is that it leaves the file open for an indeterminate
-amount of time after this part of the code has finished executing.
-This is not an issue in simple scripts, but can be a problem for larger
-applications. The :keyword:`with` statement allows objects like files to be
-used in a way that ensures they are always cleaned up promptly and correctly. ::
+amount of time after the code has finished executing. This is not an issue in
+simple scripts, but can be a problem for larger applications. The
+:keyword:`with` statement allows objects like files to be used in a way that
+ensures they are always cleaned up promptly and correctly. ::
 
    with open("myfile.txt") as f:
        for line in f:
-           print(line, end="")
+           print line,
 
 After the statement is executed, the file *f* is always closed, even if a
-problem was encountered while processing the lines. Objects which, like files,
-provide predefined clean-up actions will indicate this in their documentation.
+problem was encountered while processing the lines. Other objects which provide
+predefined clean-up actions will indicate this in their documentation.
 
 

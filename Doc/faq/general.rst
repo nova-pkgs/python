@@ -22,7 +22,7 @@ It has interfaces to many system calls and libraries, as well as to various
 window systems, and is extensible in C or C++.  It is also usable as an
 extension language for applications that need a programmable interface.
 Finally, Python is portable: it runs on many Unix variants, on the Mac, and on
-Windows 2000 and later.
+PCs under MS-DOS, Windows, Windows NT, and OS/2.
 
 To find out more, start with :ref:`tutorial-index`.  The `Beginner's Guide to
 Python <https://wiki.python.org/moin/BeginnersGuide>`_ links to other
@@ -167,7 +167,7 @@ several useful pieces of freely distributable software.  The source will compile
 and run out of the box on most UNIX platforms.
 
 Consult the `Getting Started section of the Python Developer's Guide
-<https://devguide.python.org/setup/>`__ for more
+<https://docs.python.org/devguide/setup.html>`__ for more
 information on getting the source code and compiling it.
 
 
@@ -223,7 +223,7 @@ newsgroups and on the Python home page at https://www.python.org/; an RSS feed o
 news is available.
 
 You can also access the development version of Python through Git.  See
-`The Python Developer's Guide <https://devguide.python.org/>`_ for details.
+`The Python Developer's Guide <https://docs.python.org/devguide/>`_ for details.
 
 
 How do I submit bug reports and patches for Python?
@@ -239,7 +239,7 @@ report bugs to Python, you can obtain your Roundup password through Roundup's
 `password reset procedure <https://bugs.python.org/user?@template=forgotten>`_.
 
 For more information on how Python is developed, consult `the Python Developer's
-Guide <https://devguide.python.org/>`_.
+Guide <https://docs.python.org/devguide/>`_.
 
 
 Are there any published articles about Python that I can reference?
@@ -409,28 +409,25 @@ remember the methods for a list, they can do something like this::
    >>> L = []
    >>> dir(L) # doctest: +NORMALIZE_WHITESPACE
    ['__add__', '__class__', '__contains__', '__delattr__', '__delitem__',
-   '__dir__', '__doc__', '__eq__', '__format__', '__ge__',
-   '__getattribute__', '__getitem__', '__gt__', '__hash__', '__iadd__',
-   '__imul__', '__init__', '__iter__', '__le__', '__len__', '__lt__',
-   '__mul__', '__ne__', '__new__', '__reduce__', '__reduce_ex__',
-   '__repr__', '__reversed__', '__rmul__', '__setattr__', '__setitem__',
-   '__sizeof__', '__str__', '__subclasshook__', 'append', 'clear',
-   'copy', 'count', 'extend', 'index', 'insert', 'pop', 'remove',
-   'reverse', 'sort']
-   >>> [d for d in dir(L) if '__' not in d]
-   ['append', 'clear', 'copy', 'count', 'extend', 'index', 'insert', 'pop', 'remove', 'reverse', 'sort']
-
+   '__delslice__', '__doc__', '__eq__', '__format__', '__ge__',
+   '__getattribute__', '__getitem__', '__getslice__', '__gt__',
+   '__hash__', '__iadd__', '__imul__', '__init__', '__iter__', '__le__',
+   '__len__', '__lt__', '__mul__', '__ne__', '__new__', '__reduce__',
+   '__reduce_ex__', '__repr__', '__reversed__', '__rmul__',
+   '__setattr__', '__setitem__', '__setslice__', '__sizeof__', '__str__',
+   '__subclasshook__', 'append', 'count', 'extend', 'index', 'insert',
+   'pop', 'remove', 'reverse', 'sort']
    >>> help(L.append)
    Help on built-in function append:
    <BLANKLINE>
    append(...)
-       L.append(object) -> None -- append object to end
+       L.append(object) -- append object to end
    <BLANKLINE>
    >>> L.append(1)
    >>> L
    [1]
 
-With the interpreter, documentation is never far from the student as they are
+With the interpreter, documentation is never far from the student as he's
 programming.
 
 There are also good IDEs for Python.  IDLE is a cross-platform IDE for Python
@@ -444,3 +441,38 @@ of Python editing environments.
 If you want to discuss Python's use in education, you may be interested in
 joining `the edu-sig mailing list
 <https://www.python.org/community/sigs/current/edu-sig>`_.
+
+
+Upgrading Python
+================
+
+What is this bsddb185 module my application keeps complaining about?
+--------------------------------------------------------------------
+
+.. XXX remove this question?
+
+Starting with Python2.3, the distribution includes the `PyBSDDB package
+<http://pybsddb.sf.net/>` as a replacement for the old bsddb module.  It
+includes functions which provide backward compatibility at the API level, but
+requires a newer version of the underlying `Berkeley DB
+<http://www.sleepycat.com>`_ library.  Files created with the older bsddb module
+can't be opened directly using the new module.
+
+Using your old version of Python and a pair of scripts which are part of Python
+2.3 (db2pickle.py and pickle2db.py, in the Tools/scripts directory) you can
+convert your old database files to the new format.  Using your old Python
+version, run the db2pickle.py script to convert it to a pickle, e.g.::
+
+   python2.2 <pathto>/db2pickley.py database.db database.pck
+
+Rename your database file::
+
+   mv database.db olddatabase.db
+
+Now convert the pickle file to a new format database::
+
+   python <pathto>/pickle2db.py database.db database.pck
+
+The precise commands you use will vary depending on the particulars of your
+installation.  For full details about operation of these two scripts check the
+doc string at the start of each one.

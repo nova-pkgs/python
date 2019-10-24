@@ -1,11 +1,9 @@
-import platform
-import sys
 import unittest
 from ctypes import *
 from ctypes.test import need_symbol
 from struct import calcsize
+import _testcapi
 import _ctypes_test
-from test import support
 
 class SubclassesTest(unittest.TestCase):
     def test_subclass(self):
@@ -131,7 +129,7 @@ class StructureTestCase(unittest.TestCase):
         self.assertEqual(sizeof(XX), 0)
 
     def test_fields(self):
-        # test the offset and size attributes of Structure/Union fields.
+        # test the offset and size attributes of Structure/Unoin fields.
         class X(Structure):
             _fields_ = [("x", c_int),
                         ("y", c_char)]
@@ -204,10 +202,7 @@ class StructureTestCase(unittest.TestCase):
              "_pack_": -1}
         self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
 
-    @support.cpython_only
-    def test_packed_c_limits(self):
         # Issue 15989
-        import _testcapi
         d = {"_fields_": [("a", c_byte)],
              "_pack_": _testcapi.INT_MAX + 1}
         self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
@@ -221,22 +216,22 @@ class StructureTestCase(unittest.TestCase):
                         ("age", c_int)]
 
         self.assertRaises(TypeError, Person, 42)
-        self.assertRaises(ValueError, Person, b"asldkjaslkdjaslkdj")
+        self.assertRaises(ValueError, Person, "asldkjaslkdjaslkdj")
         self.assertRaises(TypeError, Person, "Name", "HI")
 
         # short enough
-        self.assertEqual(Person(b"12345", 5).name, b"12345")
+        self.assertEqual(Person("12345", 5).name, "12345")
         # exact fit
-        self.assertEqual(Person(b"123456", 5).name, b"123456")
+        self.assertEqual(Person("123456", 5).name, "123456")
         # too long
-        self.assertRaises(ValueError, Person, b"1234567", 5)
+        self.assertRaises(ValueError, Person, "1234567", 5)
 
     def test_conflicting_initializers(self):
         class POINT(Structure):
-            _fields_ = [("phi", c_float), ("rho", c_float)]
+            _fields_ = [("x", c_int), ("y", c_int)]
         # conflicting positional and keyword args
-        self.assertRaisesRegex(TypeError, "phi", POINT, 2, 3, phi=4)
-        self.assertRaisesRegex(TypeError, "rho", POINT, 2, 3, rho=4)
+        self.assertRaises(TypeError, POINT, 2, 3, x=4)
+        self.assertRaises(TypeError, POINT, 2, 3, y=4)
 
         # too many initializers
         self.assertRaises(TypeError, POINT, 2, 3, 4)
@@ -261,7 +256,7 @@ class StructureTestCase(unittest.TestCase):
             class S(Structure):
                 _fields_ = [(name, c_int)]
 
-        self.assertRaises(TypeError, declare_with_name, b"x")
+        self.assertRaises(TypeError, declare_with_name, u"x\xe9")
 
     def test_intarray_fields(self):
         class SomeInts(Structure):
@@ -291,11 +286,11 @@ class StructureTestCase(unittest.TestCase):
                         ("phone", Phone),
                         ("age", c_int)]
 
-        p = Person(b"Someone", (b"1234", b"5678"), 5)
+        p = Person("Someone", ("1234", "5678"), 5)
 
-        self.assertEqual(p.name, b"Someone")
-        self.assertEqual(p.phone.areacode, b"1234")
-        self.assertEqual(p.phone.number, b"5678")
+        self.assertEqual(p.name, "Someone")
+        self.assertEqual(p.phone.areacode, "1234")
+        self.assertEqual(p.phone.number, "5678")
         self.assertEqual(p.age, 5)
 
     @need_symbol('c_wchar')
@@ -304,15 +299,15 @@ class StructureTestCase(unittest.TestCase):
             _fields_ = [("name", c_wchar * 12),
                         ("age", c_int)]
 
-        p = PersonW("Someone \xe9")
-        self.assertEqual(p.name, "Someone \xe9")
+        p = PersonW(u"Someone")
+        self.assertEqual(p.name, "Someone")
 
-        self.assertEqual(PersonW("1234567890").name, "1234567890")
-        self.assertEqual(PersonW("12345678901").name, "12345678901")
+        self.assertEqual(PersonW(u"1234567890").name, u"1234567890")
+        self.assertEqual(PersonW(u"12345678901").name, u"12345678901")
         # exact fit
-        self.assertEqual(PersonW("123456789012").name, "123456789012")
+        self.assertEqual(PersonW(u"123456789012").name, u"123456789012")
         #too long
-        self.assertRaises(ValueError, PersonW, "1234567890123")
+        self.assertRaises(ValueError, PersonW, u"1234567890123")
 
     def test_init_errors(self):
         class Phone(Structure):
@@ -324,16 +319,26 @@ class StructureTestCase(unittest.TestCase):
                         ("phone", Phone),
                         ("age", c_int)]
 
-        cls, msg = self.get_except(Person, b"Someone", (1, 2))
+        cls, msg = self.get_except(Person, "Someone", (1, 2))
         self.assertEqual(cls, RuntimeError)
-        self.assertEqual(msg,
-                             "(Phone) <class 'TypeError'>: "
-                             "expected bytes, int found")
+        # In Python 2.5, Exception is a new-style class, and the repr changed
+        if issubclass(Exception, object):
+            self.assertEqual(msg,
+                                 "(Phone) <type 'exceptions.TypeError'>: "
+                                 "expected string or Unicode object, int found")
+        else:
+            # Compatibility no longer strictly required
+            self.assertEqual(msg,
+                                 "(Phone) exceptions.TypeError: "
+                                 "expected string or Unicode object, int found")
 
-        cls, msg = self.get_except(Person, b"Someone", (b"a", b"b", b"c"))
+        cls, msg = self.get_except(Person, "Someone", ("a", "b", "c"))
         self.assertEqual(cls, RuntimeError)
-        self.assertEqual(msg,
-                             "(Phone) <class 'TypeError'>: too many initializers")
+        if issubclass(Exception, object):
+            self.assertEqual(msg,
+                                 "(Phone) <type 'exceptions.TypeError'>: too many initializers")
+        else:
+            self.assertEqual(msg, "(Phone) exceptions.TypeError: too many initializers")
 
     def test_huge_field_name(self):
         # issue12881: segfault with large structure field names
@@ -351,7 +356,7 @@ class StructureTestCase(unittest.TestCase):
     def get_except(self, func, *args):
         try:
             func(*args)
-        except Exception as detail:
+        except Exception, detail:
             return detail.__class__, str(detail)
 
     @unittest.skip('test disabled')
@@ -398,178 +403,26 @@ class StructureTestCase(unittest.TestCase):
         self.assertRaises(TypeError, lambda: Z(1, 2, 3, 4, 5, 6, 7))
 
     def test_pass_by_value(self):
-        # This should mirror the Test structure
-        # in Modules/_ctypes/_ctypes_test.c
-        class Test(Structure):
-            _fields_ = [
-                ('first', c_ulong),
-                ('second', c_ulong),
-                ('third', c_ulong),
-            ]
-
-        s = Test()
-        s.first = 0xdeadbeef
-        s.second = 0xcafebabe
-        s.third = 0x0bad1dea
-        dll = CDLL(_ctypes_test.__file__)
-        func = dll._testfunc_large_struct_update_value
-        func.argtypes = (Test,)
-        func.restype = None
-        func(s)
-        self.assertEqual(s.first, 0xdeadbeef)
-        self.assertEqual(s.second, 0xcafebabe)
-        self.assertEqual(s.third, 0x0bad1dea)
-
-    def test_pass_by_value_finalizer(self):
-        # bpo-37140: Similar to test_pass_by_value(), but the Python structure
-        # has a finalizer (__del__() method): the finalizer must only be called
-        # once.
-
-        finalizer_calls = []
-
-        class Test(Structure):
-            _fields_ = [
-                ('first', c_ulong),
-                ('second', c_ulong),
-                ('third', c_ulong),
-            ]
-            def __del__(self):
-                finalizer_calls.append("called")
-
-        s = Test(1, 2, 3)
-        # Test the StructUnionType_paramfunc() code path which copies the
-        # structure: if the stucture is larger than sizeof(void*).
-        self.assertGreater(sizeof(s), sizeof(c_void_p))
-
-        dll = CDLL(_ctypes_test.__file__)
-        func = dll._testfunc_large_struct_update_value
-        func.argtypes = (Test,)
-        func.restype = None
-        func(s)
-        # bpo-37140: Passing the structure by refrence must not call
-        # its finalizer!
-        self.assertEqual(finalizer_calls, [])
-        self.assertEqual(s.first, 1)
-        self.assertEqual(s.second, 2)
-        self.assertEqual(s.third, 3)
-
-        # The finalizer must be called exactly once
-        s = None
-        support.gc_collect()
-        self.assertEqual(finalizer_calls, ["called"])
-
-    def test_pass_by_value_in_register(self):
+        # This should mirror the structure in Modules/_ctypes/_ctypes_test.c
         class X(Structure):
             _fields_ = [
-                ('first', c_uint),
-                ('second', c_uint)
+                ('first', c_ulong),
+                ('second', c_ulong),
+                ('third', c_ulong),
             ]
 
         s = X()
         s.first = 0xdeadbeef
         s.second = 0xcafebabe
+        s.third = 0x0bad1dea
         dll = CDLL(_ctypes_test.__file__)
-        func = dll._testfunc_reg_struct_update_value
+        func = dll._testfunc_large_struct_update_value
         func.argtypes = (X,)
         func.restype = None
         func(s)
         self.assertEqual(s.first, 0xdeadbeef)
         self.assertEqual(s.second, 0xcafebabe)
-        got = X.in_dll(dll, "last_tfrsuv_arg")
-        self.assertEqual(s.first, got.first)
-        self.assertEqual(s.second, got.second)
-
-    def test_array_in_struct(self):
-        # See bpo-22273
-
-        # These should mirror the structures in Modules/_ctypes/_ctypes_test.c
-        class Test2(Structure):
-            _fields_ = [
-                ('data', c_ubyte * 16),
-            ]
-
-        class Test3(Structure):
-            _fields_ = [
-                ('data', c_double * 2),
-            ]
-
-        class Test3A(Structure):
-            _fields_ = [
-                ('data', c_float * 2),
-            ]
-
-        class Test3B(Test3A):
-            _fields_ = [
-                ('more_data', c_float * 2),
-            ]
-
-        s = Test2()
-        expected = 0
-        for i in range(16):
-            s.data[i] = i
-            expected += i
-        dll = CDLL(_ctypes_test.__file__)
-        func = dll._testfunc_array_in_struct1
-        func.restype = c_int
-        func.argtypes = (Test2,)
-        result = func(s)
-        self.assertEqual(result, expected)
-        # check the passed-in struct hasn't changed
-        for i in range(16):
-            self.assertEqual(s.data[i], i)
-
-        s = Test3()
-        s.data[0] = 3.14159
-        s.data[1] = 2.71828
-        expected = 3.14159 + 2.71828
-        func = dll._testfunc_array_in_struct2
-        func.restype = c_double
-        func.argtypes = (Test3,)
-        result = func(s)
-        self.assertEqual(result, expected)
-        # check the passed-in struct hasn't changed
-        self.assertEqual(s.data[0], 3.14159)
-        self.assertEqual(s.data[1], 2.71828)
-
-        s = Test3B()
-        s.data[0] = 3.14159
-        s.data[1] = 2.71828
-        s.more_data[0] = -3.0
-        s.more_data[1] = -2.0
-
-        expected = 3.14159 + 2.71828 - 5.0
-        func = dll._testfunc_array_in_struct2a
-        func.restype = c_double
-        func.argtypes = (Test3B,)
-        result = func(s)
-        self.assertAlmostEqual(result, expected, places=6)
-        # check the passed-in struct hasn't changed
-        self.assertAlmostEqual(s.data[0], 3.14159, places=6)
-        self.assertAlmostEqual(s.data[1], 2.71828, places=6)
-        self.assertAlmostEqual(s.more_data[0], -3.0, places=6)
-        self.assertAlmostEqual(s.more_data[1], -2.0, places=6)
-
-    def test_38368(self):
-        class U(Union):
-            _fields_ = [
-                ('f1', c_uint8 * 16),
-                ('f2', c_uint16 * 8),
-                ('f3', c_uint32 * 4),
-            ]
-        u = U()
-        u.f3[0] = 0x01234567
-        u.f3[1] = 0x89ABCDEF
-        u.f3[2] = 0x76543210
-        u.f3[3] = 0xFEDCBA98
-        f1 = [u.f1[i] for i in range(16)]
-        f2 = [u.f2[i] for i in range(8)]
-        if sys.byteorder == 'little':
-            self.assertEqual(f1, [0x67, 0x45, 0x23, 0x01,
-                                  0xef, 0xcd, 0xab, 0x89,
-                                  0x10, 0x32, 0x54, 0x76,
-                                  0x98, 0xba, 0xdc, 0xfe])
-            self.assertEqual(f2, [0x4567, 0x0123, 0xcdef, 0x89ab,
-                                  0x3210, 0x7654, 0xba98, 0xfedc])
+        self.assertEqual(s.third, 0x0bad1dea)
 
 class PointerMemberTestCase(unittest.TestCase):
 
@@ -619,7 +472,7 @@ class TestRecursiveStructure(unittest.TestCase):
 
         try:
             Recursive._fields_ = [("next", Recursive)]
-        except AttributeError as details:
+        except AttributeError, details:
             self.assertIn("Structure or union cannot contain itself",
                           str(details))
         else:
@@ -636,7 +489,7 @@ class TestRecursiveStructure(unittest.TestCase):
 
         try:
             Second._fields_ = [("first", First)]
-        except AttributeError as details:
+        except AttributeError, details:
             self.assertIn("_fields_ is final", str(details))
         else:
             self.fail("AttributeError not raised")

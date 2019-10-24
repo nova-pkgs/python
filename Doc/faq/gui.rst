@@ -8,18 +8,10 @@ Graphic User Interface FAQ
 
    .. contents::
 
-.. XXX need review for Python 3.
-
-
-General GUI Questions
-=====================
-
 What platform-independent GUI toolkits exist for Python?
 ========================================================
 
-Depending on what platform(s) you are aiming at, there are several.  Some
-of them haven't been ported to Python 3 yet.  At least `Tkinter`_ and `Qt`_
-are known to be Python 3-compatible.
+Depending on what platform(s) you are aiming at, there are several.
 
 .. XXX check links
 
@@ -27,12 +19,10 @@ Tkinter
 -------
 
 Standard builds of Python include an object-oriented interface to the Tcl/Tk
-widget set, called :ref:`tkinter <Tkinter>`.  This is probably the easiest to
-install (since it comes included with most
-`binary distributions <https://www.python.org/downloads/>`_ of Python) and use.
-For more info about Tk, including pointers to the source, see the
-`Tcl/Tk home page <https://www.tcl.tk>`_.  Tcl/Tk is fully portable to the
-Mac OS X, Windows, and Unix platforms.
+widget set, called Tkinter.  This is probably the easiest to install and use.
+For more info about Tk, including pointers to the source, see the Tcl/Tk home
+page at https://www.tcl.tk.  Tcl/Tk is fully portable to the Mac OS X, Windows,
+and Unix platforms.
 
 wxWidgets
 ---------
@@ -43,7 +33,7 @@ number of platforms, with Windows, Mac OS X, GTK, X11, all listed as
 current stable targets.  Language bindings are available for a number
 of languages including Python, Perl, Ruby, etc.
 
-`wxPython <https://www.wxpython.org>`_ is the Python binding for
+wxPython (http://www.wxpython.org) is the Python binding for
 wxwidgets.  While it often lags slightly behind the official wxWidgets
 releases, it also offers a number of features via pure Python
 extensions that are not available in other language bindings.  There
@@ -70,22 +60,8 @@ are available from `The Qt Company <https://www.qt.io/licensing/>`_.
 Gtk+
 ----
 
-The `GObject introspection bindings <https://wiki.gnome.org/Projects/PyGObject>`_
-for Python allow you to write GTK+ 3 applications.  There is also a
-`Python GTK+ 3 Tutorial <https://python-gtk-3-tutorial.readthedocs.io>`_.
-
-The older PyGtk bindings for the `Gtk+ 2 toolkit <https://www.gtk.org>`_ have
-been implemented by James Henstridge; see <http://www.pygtk.org>.
-
-Kivy
-----
-
-`Kivy <https://kivy.org/>`_ is a cross-platform GUI library supporting both
-desktop operating systems (Windows, macOS, Linux) and mobile devices (Android,
-iOS).  It is written in Python and Cython, and can use a range of windowing
-backends.
-
-Kivy is free and open source software distributed under the MIT license.
+PyGtk bindings for the `Gtk+ toolkit <http://www.gtk.org>`_ have been
+implemented by James Henstridge; see <http://www.pygtk.org>.
 
 FLTK
 ----
@@ -104,7 +80,7 @@ What platform-specific GUI toolkits exist for Python?
 ========================================================
 
 By installing the `PyObjc Objective-C bridge
-<https://pypi.org/project/pyobjc/>`_, Python programs can use Mac OS X's
+<https://pythonhosted.org/pyobjc/>`_, Python programs can use Mac OS X's
 Cocoa libraries.
 
 :ref:`Pythonwin <windows-faq>` by Mark Hammond includes an interface to the
@@ -157,3 +133,6 @@ The most common cause is that the widget to which the binding applies doesn't
 have "keyboard focus".  Check out the Tk documentation for the focus command.
 Usually a widget is given the keyboard focus by clicking in it (but not for
 labels; see the takefocus option).
+
+
+

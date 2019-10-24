@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 """Freeze a Python script into a binary.
 
@@ -124,7 +124,9 @@ def main():
 
     # default the exclude list for each platform
     if win: exclude = exclude + [
-        'dos', 'dospath', 'mac', 'macfs', 'MACFS', 'posix', ]
+        'dos', 'dospath', 'mac', 'macpath', 'macfs', 'MACFS', 'posix',
+        'os2', 'ce', 'riscos', 'riscosenviron', 'riscospath',
+        ]
 
     fail_import = exclude[:]
 
@@ -142,9 +144,8 @@ def main():
         # last option can not be "-i", so this ensures "pos+1" is in range!
         if sys.argv[pos] == '-i':
             try:
-                with open(sys.argv[pos+1]) as infp:
-                    options = infp.read().split()
-            except IOError as why:
+                options = open(sys.argv[pos+1]).read().split()
+            except IOError, why:
                 usage("File name '%s' specified with the -i option "
                       "can not be read - %s" % (sys.argv[pos+1], why) )
             # Replace the '-i' and the filename with the read params.
@@ -155,13 +156,13 @@ def main():
     # Now parse the command line with the extras inserted.
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'r:a:dEe:hmo:p:P:qs:wX:x:l:')
-    except getopt.error as msg:
+    except getopt.error, msg:
         usage('getopt error: ' + str(msg))
 
     # process option arguments
     for o, a in opts:
         if o == '-h':
-            print(__doc__)
+            print __doc__
             return
         if o == '-d':
             debug = debug + 1
@@ -193,14 +194,14 @@ def main():
         if o == '-l':
             addn_link.append(a)
         if o == '-a':
-            modulefinder.AddPackagePath(*a.split("=", 2))
+            apply(modulefinder.AddPackagePath, tuple(a.split("=", 2)))
         if o == '-r':
             f,r = a.split("=", 2)
             replace_paths.append( (f,r) )
 
     # modules that are imported by the Python runtime
     implicits = []
-    for module in ('site', 'warnings', 'encodings.utf_8', 'encodings.latin_1'):
+    for module in ('site', 'warnings',):
         if module not in exclude:
             implicits.append(module)
 
@@ -217,15 +218,11 @@ def main():
     ishome = os.path.exists(os.path.join(prefix, 'Python', 'ceval.c'))
 
     # locations derived from options
-    version = '%d.%d' % sys.version_info[:2]
-    if hasattr(sys, 'abiflags'):
-        flagged_version = version + sys.abiflags
-    else:
-        flagged_version = version
+    version = sys.version[:3]
     if win:
         extensions_c = 'frozen_extensions.c'
     if ishome:
-        print("(Using Python source directory)")
+        print "(Using Python source directory)"
         binlib = exec_prefix
         incldir = os.path.join(prefix, 'Include')
         config_h_dir = exec_prefix
@@ -236,11 +233,10 @@ def main():
             frozendllmain_c = os.path.join(exec_prefix, 'Pc\\frozen_dllmain.c')
     else:
         binlib = os.path.join(exec_prefix,
-                              'lib', 'python%s' % version,
-                              'config-%s' % flagged_version)
-        incldir = os.path.join(prefix, 'include', 'python%s' % flagged_version)
+                              'lib', 'python%s' % version, 'config')
+        incldir = os.path.join(prefix, 'include', 'python%s' % version)
         config_h_dir = os.path.join(exec_prefix, 'include',
-                                    'python%s' % flagged_version)
+                                    'python%s' % version)
         config_c_in = os.path.join(binlib, 'config.c.in')
         frozenmain_c = os.path.join(binlib, 'frozenmain.c')
         makefile_in = os.path.join(binlib, 'Makefile')
@@ -314,8 +310,8 @@ def main():
     if odir and not os.path.isdir(odir):
         try:
             os.mkdir(odir)
-            print("Created output directory", odir)
-        except OSError as msg:
+            print "Created output directory", odir
+        except os.error, msg:
             usage('%s: mkdir failed (%s)' % (odir, str(msg)))
     base = ''
     if odir:
@@ -337,7 +333,7 @@ def main():
         try:
             custom_entry_point, python_entry_is_main = \
                 winmakemakefile.get_custom_entry_point(subsystem)
-        except ValueError as why:
+        except ValueError, why:
             usage(why)
 
 
@@ -367,12 +363,6 @@ def main():
         else:
             mf.load_file(mod)
 
-    # Alias "importlib._bootstrap" to "_frozen_importlib" so that the
-    # import machinery can bootstrap.  Do the same for
-    # importlib._bootstrap_external.
-    mf.modules["_frozen_importlib"] = mf.modules["importlib._bootstrap"]
-    mf.modules["_frozen_importlib_external"] = mf.modules["importlib._bootstrap_external"]
-
     # Add the main script as either __main__, or the actual module name.
     if python_entry_is_main:
         mf.run_script(scriptfile)
@@ -381,7 +371,7 @@ def main():
 
     if debug > 0:
         mf.report()
-        print()
+        print
     dict = mf.modules
 
     if error_if_any_missing:
@@ -396,7 +386,8 @@ def main():
     # look for unfrozen modules (builtin and of unknown origin)
     builtins = []
     unknown = []
-    mods = sorted(dict.keys())
+    mods = dict.keys()
+    mods.sort()
     for mod in mods:
         if dict[mod].__code__:
             continue
@@ -443,26 +434,34 @@ def main():
                  frozendllmain_c, os.path.basename(extensions_c)] + files
         maindefn = checkextensions_win32.CExtension( '__main__', xtras )
         frozen_extensions.append( maindefn )
-        with open(makefile, 'w') as outfp:
+        outfp = open(makefile, 'w')
+        try:
             winmakemakefile.makemakefile(outfp,
                                          locals(),
                                          frozen_extensions,
                                          os.path.basename(target))
+        finally:
+            outfp.close()
         return
 
     # generate config.c and Makefile
     builtins.sort()
-    with open(config_c_in) as infp, bkfile.open(config_c, 'w') as outfp:
+    infp = open(config_c_in)
+    outfp = bkfile.open(config_c, 'w')
+    try:
         makeconfig.makeconfig(infp, outfp, builtins)
+    finally:
+        outfp.close()
+    infp.close()
 
     cflags = ['$(OPT)']
     cppflags = defines + includes
-    libs = [os.path.join(binlib, '$(LDLIBRARY)')]
+    libs = [os.path.join(binlib, 'libpython$(VERSION).a')]
 
     somevars = {}
     if os.path.exists(makefile_in):
         makevars = parsesetup.getmakevars(makefile_in)
-        for key in makevars:
+        for key in makevars.keys():
             somevars[key] = makevars[key]
 
     somevars['CFLAGS'] = ' '.join(cflags) # override
@@ -471,24 +470,27 @@ def main():
             files + supp_sources +  addfiles + libs + \
             ['$(MODLIBS)', '$(LIBS)', '$(SYSLIBS)']
 
-    with bkfile.open(makefile, 'w') as outfp:
+    outfp = bkfile.open(makefile, 'w')
+    try:
         makemakefile.makemakefile(outfp, somevars, files, base_target)
+    finally:
+        outfp.close()
 
     # Done!
 
     if odir:
-        print('Now run "make" in', odir, end=' ')
-        print('to build the target:', base_target)
+        print 'Now run "make" in', odir,
+        print 'to build the target:', base_target
     else:
-        print('Now run "make" to build the target:', base_target)
+        print 'Now run "make" to build the target:', base_target
 
 
 # Print usage message and exit
 
 def usage(msg):
     sys.stdout = sys.stderr
-    print("Error:", msg)
-    print("Use ``%s -h'' for help" % sys.argv[0])
+    print "Error:", msg
+    print "Use ``%s -h'' for help" % sys.argv[0]
     sys.exit(2)
 
 

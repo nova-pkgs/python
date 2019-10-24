@@ -7,12 +7,15 @@ child after a fork().
 
 On some systems (e.g. Solaris without posix threads) we find that all
 active threads survive in the child after a fork(); this is an error.
+
+While BeOS doesn't officially support fork and native threading in
+the same application, the present example should work just fine.  DC
 """
 
 import os, sys, time, unittest
-import threading
 import test.support as support
 
+threading = support.import_module('threading')
 
 LONGSLEEP = 2
 SHORTSLEEP = 0.5
@@ -32,7 +35,7 @@ class ForkWait(unittest.TestCase):
         for thread in self.threads:
             thread.join()
         thread = None
-        self.threads.clear()
+        del self.threads[:]
         support.threading_cleanup(*self._threading_key)
 
     def f(self, id):
@@ -40,7 +43,7 @@ class ForkWait(unittest.TestCase):
             self.alive[id] = os.getpid()
             try:
                 time.sleep(SHORTSLEEP)
-            except OSError:
+            except IOError:
                 pass
 
     def wait_impl(self, cpid):
@@ -61,15 +64,11 @@ class ForkWait(unittest.TestCase):
             thread.start()
             self.threads.append(thread)
 
-        # busy-loop to wait for threads
-        deadline = time.monotonic() + 10.0
-        while len(self.alive) < NUM_THREADS:
-            time.sleep(0.1)
-            if deadline < time.monotonic():
-                break
+        time.sleep(LONGSLEEP)
 
-        a = sorted(self.alive.keys())
-        self.assertEqual(a, list(range(NUM_THREADS)))
+        a = self.alive.keys()
+        a.sort()
+        self.assertEqual(a, range(NUM_THREADS))
 
         prefork_lives = self.alive.copy()
 

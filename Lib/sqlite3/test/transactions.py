@@ -1,4 +1,4 @@
-#-*- coding: iso-8859-1 -*-
+#-*- coding: ISO-8859-1 -*-
 # pysqlite2/test/transactions.py: tests transactions
 #
 # Copyright (C) 2005-2007 Gerhard Häring <gh@ghaering.de>
@@ -21,6 +21,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import sys
 import os, unittest
 import sqlite3 as sqlite
 
@@ -52,13 +53,13 @@ class TransactionTests(unittest.TestCase):
         except OSError:
             pass
 
-    def CheckDMLDoesNotAutoCommitBefore(self):
+    def CheckDMLdoesAutoCommitBefore(self):
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
         self.cur1.execute("create table test2(j)")
         self.cur2.execute("select i from test")
         res = self.cur2.fetchall()
-        self.assertEqual(len(res), 0)
+        self.assertEqual(len(res), 1)
 
     def CheckInsertStartsTransaction(self):
         self.cur1.execute("create table test(i)")
@@ -111,25 +112,39 @@ class TransactionTests(unittest.TestCase):
         res = self.cur2.fetchall()
         self.assertEqual(len(res), 1)
 
-    @unittest.skipIf(sqlite.sqlite_version_info < (3, 2, 2),
-                     'test hangs on sqlite versions older than 3.2.2')
     def CheckRaiseTimeout(self):
+        if sqlite.sqlite_version_info < (3, 2, 2):
+            # This will fail (hang) on earlier versions of sqlite.
+            # Determine exact version it was fixed. 3.2.1 hangs.
+            return
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
-        with self.assertRaises(sqlite.OperationalError):
+        try:
             self.cur2.execute("insert into test(i) values (5)")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except:
+            self.fail("should have raised an OperationalError")
 
-    @unittest.skipIf(sqlite.sqlite_version_info < (3, 2, 2),
-                     'test hangs on sqlite versions older than 3.2.2')
     def CheckLocking(self):
         """
         This tests the improved concurrency with pysqlite 2.3.4. You needed
         to roll back con2 before you could commit con1.
         """
+        if sqlite.sqlite_version_info < (3, 2, 2):
+            # This will fail (hang) on earlier versions of sqlite.
+            # Determine exact version it was fixed. 3.2.1 hangs.
+            return
         self.cur1.execute("create table test(i)")
         self.cur1.execute("insert into test(i) values (5)")
-        with self.assertRaises(sqlite.OperationalError):
+        try:
             self.cur2.execute("insert into test(i) values (5)")
+            self.fail("should have raised an OperationalError")
+        except sqlite.OperationalError:
+            pass
+        except:
+            self.fail("should have raised an OperationalError")
         # NO self.con2.rollback() HERE!!!
         self.con1.commit()
 
@@ -145,13 +160,23 @@ class TransactionTests(unittest.TestCase):
         cur.execute("select 1 union select 2 union select 3")
 
         con.rollback()
-        with self.assertRaises(sqlite.InterfaceError):
+        try:
             cur.fetchall()
+            self.fail("InterfaceError should have been raised")
+        except sqlite.InterfaceError, e:
+            pass
+        except:
+            self.fail("InterfaceError should have been raised")
 
 class SpecialCommandTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")
         self.cur = self.con.cursor()
+
+    def CheckVacuum(self):
+        self.cur.execute("create table test(i)")
+        self.cur.execute("insert into test(i) values (5)")
+        self.cur.execute("vacuum")
 
     def CheckDropTable(self):
         self.cur.execute("create table test(i)")
@@ -167,44 +192,10 @@ class SpecialCommandTests(unittest.TestCase):
         self.cur.close()
         self.con.close()
 
-class TransactionalDDL(unittest.TestCase):
-    def setUp(self):
-        self.con = sqlite.connect(":memory:")
-
-    def CheckDdlDoesNotAutostartTransaction(self):
-        # For backwards compatibility reasons, DDL statements should not
-        # implicitly start a transaction.
-        self.con.execute("create table test(i)")
-        self.con.rollback()
-        result = self.con.execute("select * from test").fetchall()
-        self.assertEqual(result, [])
-
-    def CheckImmediateTransactionalDDL(self):
-        # You can achieve transactional DDL by issuing a BEGIN
-        # statement manually.
-        self.con.execute("begin immediate")
-        self.con.execute("create table test(i)")
-        self.con.rollback()
-        with self.assertRaises(sqlite.OperationalError):
-            self.con.execute("select * from test")
-
-    def CheckTransactionalDDL(self):
-        # You can achieve transactional DDL by issuing a BEGIN
-        # statement manually.
-        self.con.execute("begin")
-        self.con.execute("create table test(i)")
-        self.con.rollback()
-        with self.assertRaises(sqlite.OperationalError):
-            self.con.execute("select * from test")
-
-    def tearDown(self):
-        self.con.close()
-
 def suite():
     default_suite = unittest.makeSuite(TransactionTests, "Check")
     special_command_suite = unittest.makeSuite(SpecialCommandTests, "Check")
-    ddl_suite = unittest.makeSuite(TransactionalDDL, "Check")
-    return unittest.TestSuite((default_suite, special_command_suite, ddl_suite))
+    return unittest.TestSuite((default_suite, special_command_suite))
 
 def test():
     runner = unittest.TextTestRunner()

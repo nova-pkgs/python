@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 """
 Command line tool to bisect failing CPython tests.
 
@@ -16,6 +16,7 @@ Load an existing list of tests from a file using -i option:
     ./python -m test --list-cases -m FileTests test_os > tests
     ./python -m test.bisect_cmd -i tests test_os
 """
+from __future__ import print_function
 
 import argparse
 import datetime
@@ -38,7 +39,7 @@ def write_tests(filename, tests):
 def write_output(filename, tests):
     if not filename:
         return
-    print("Writing %s tests into %s" % (len(tests), filename))
+    print("Write %s tests into %s" % (len(tests), filename))
     write_tests(filename, tests)
     return filename
 
@@ -50,16 +51,23 @@ def format_shell_args(args):
 def list_cases(args):
     cmd = [sys.executable, '-m', 'test', '--list-cases']
     cmd.extend(args.test_args)
-    proc = subprocess.run(cmd,
-                          stdout=subprocess.PIPE,
-                          universal_newlines=True)
-    exitcode = proc.returncode
+    proc = subprocess.Popen(cmd,
+                            stdout=subprocess.PIPE,
+                            universal_newlines=True)
+    try:
+        stdout = proc.communicate()[0]
+    except:
+        proc.stdout.close()
+        proc.kill()
+        proc.wait()
+        raise
+    exitcode = proc.wait()
     if exitcode:
         cmd = format_shell_args(cmd)
         print("Failed to list tests: %s failed with exit code %s"
               % (cmd, exitcode))
         sys.exit(exitcode)
-    tests = proc.stdout.splitlines()
+    tests = stdout.splitlines()
     return tests
 
 
@@ -71,8 +79,14 @@ def run_tests(args, tests, huntrleaks=None):
         cmd = [sys.executable, '-m', 'test', '--matchfile', tmp]
         cmd.extend(args.test_args)
         print("+ %s" % format_shell_args(cmd))
-        proc = subprocess.run(cmd)
-        return proc.returncode
+        proc = subprocess.Popen(cmd)
+        try:
+            exitcode = proc.wait()
+        except:
+            proc.kill()
+            proc.wait()
+            raise
+        return exitcode
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
@@ -116,7 +130,7 @@ def main():
     output = write_output(args.output, tests)
     print()
 
-    start_time = time.monotonic()
+    start_time = time.time()
     iteration = 1
     try:
         while len(tests) > args.max_tests and iteration <= args.max_iter:
@@ -133,11 +147,11 @@ def main():
             print("ran %s tests/%s" % (ntest, len(tests)))
             print("exit", exitcode)
             if exitcode:
-                print("Tests failed: continuing with this subtest")
+                print("Tests failed: use this new subtest")
                 tests = subtests
                 output = write_output(args.output, tests)
             else:
-                print("Tests succeeded: skipping this subtest, trying a new subset")
+                print("Tests succeeded: skip this subtest, try a new subbset")
             print()
             iteration += 1
     except KeyboardInterrupt:
@@ -153,7 +167,7 @@ def main():
     if output:
         print("Output written into %s" % output)
 
-    dt = math.ceil(time.monotonic() - start_time)
+    dt = math.ceil(time.time() - start_time)
     if len(tests) <= args.max_tests:
         print("Bisection completed in %s iterations and %s"
               % (iteration, datetime.timedelta(seconds=dt)))

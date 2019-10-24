@@ -3,16 +3,14 @@
 
 .. module:: sysconfig
    :synopsis: Python's configuration information
-
-.. moduleauthor:: Tarek Ziadé <tarek@ziade.org>
-.. sectionauthor:: Tarek Ziadé <tarek@ziade.org>
-
-.. versionadded:: 3.2
-
-**Source code:** :source:`Lib/sysconfig.py`
-
+.. moduleauthor:: Tarek Ziade <tarek@ziade.org>
+.. sectionauthor:: Tarek Ziade <tarek@ziade.org>
 .. index::
    single: configuration information
+
+.. versionadded:: 2.7
+
+**Source code:** :source:`Lib/sysconfig.py`
 
 --------------
 
@@ -84,6 +82,8 @@ Python currently supports seven schemes:
   located under the user home directory.
 - *nt*: scheme for NT platforms like Windows.
 - *nt_user*: scheme for NT platforms, when the *user* option is used.
+- *os2*: scheme for OS/2 platforms.
+- *os2_home*: scheme for OS/2 platforms, when the *user* option is used.
 
 Each scheme is itself composed of a series of paths and each path has a unique
 identifier.  Python currently uses eight paths:
@@ -164,7 +164,7 @@ Other functions
 .. function:: get_python_version()
 
    Return the ``MAJOR.MINOR`` Python version number as a string.  Similar to
-   ``'%d.%d' % sys.version_info[:2]``.
+   ``sys.version[:3]``.
 
 
 .. function:: get_platform()
@@ -173,19 +173,23 @@ Other functions
 
    This is used mainly to distinguish platform-specific build directories and
    platform-specific built distributions.  Typically includes the OS name and
-   version and the architecture (as supplied by 'os.uname()'), although the
-   exact information included depends on the OS; e.g., on Linux, the kernel
-   version isn't particularly important.
+   version and the architecture (as supplied by :func:`os.uname`), although the
+   exact information included depends on the OS; e.g. for IRIX the architecture
+   isn't particularly important (IRIX only runs on SGI hardware), but for Linux
+   the kernel version isn't particularly important.
 
    Examples of returned values:
 
    - linux-i586
    - linux-alpha (?)
    - solaris-2.6-sun4u
+   - irix-5.3
+   - irix64-6.2
 
    Windows will return one of:
 
    - win-amd64 (64bit Windows on AMD64, aka x86_64, Intel64, and EM64T)
+   - win-ia64 (64bit Windows on Itanium)
    - win32 (all others - specifically, sys.platform is returned)
 
    Mac OS X can return:
@@ -200,9 +204,7 @@ Other functions
 
 .. function:: is_python_build()
 
-   Return ``True`` if the running Python interpreter was built from source and
-   is being run from its built location, and not from a location resulting from
-   e.g. running ``make install`` or installing via a binary installer.
+   Return ``True`` if the current Python installation was built from source.
 
 
 .. function:: parse_config_h(fp[, vars])
@@ -223,36 +225,3 @@ Other functions
 .. function:: get_makefile_filename()
 
    Return the path of :file:`Makefile`.
-
-Using :mod:`sysconfig` as a script
-----------------------------------
-
-You can use :mod:`sysconfig` as a script with Python's *-m* option:
-
-.. code-block:: shell-session
-
-    $ python -m sysconfig
-    Platform: "macosx-10.4-i386"
-    Python version: "3.2"
-    Current installation scheme: "posix_prefix"
-
-    Paths:
-            data = "/usr/local"
-            include = "/Users/tarek/Dev/svn.python.org/py3k/Include"
-            platinclude = "."
-            platlib = "/usr/local/lib/python3.2/site-packages"
-            platstdlib = "/usr/local/lib/python3.2"
-            purelib = "/usr/local/lib/python3.2/site-packages"
-            scripts = "/usr/local/bin"
-            stdlib = "/usr/local/lib/python3.2"
-
-    Variables:
-            AC_APPLE_UNIVERSAL_BUILD = "0"
-            AIX_GENUINE_CPLUSPLUS = "0"
-            AR = "ar"
-            ARFLAGS = "rc"
-            ...
-
-This call will print in the standard output the information returned by
-:func:`get_platform`, :func:`get_python_version`, :func:`get_path` and
-:func:`get_config_vars`.

@@ -1,4 +1,4 @@
-.. highlight:: c
+.. highlightlang:: c
 
 .. _string-conversion:
 
@@ -26,7 +26,7 @@ guarantee consistent behavior in corner cases, which the Standard C functions do
 not.
 
 The wrappers ensure that *str*[*size*-1] is always ``'\0'`` upon return. They
-never write more than *size* bytes (including the trailing ``'\0'``) into str.
+never write more than *size* bytes (including the trailing ``'\0'`` into str.
 Both functions require that ``str != NULL``, ``size > 0`` and ``format !=
 NULL``.
 
@@ -60,7 +60,7 @@ The following functions provide locale-independent string to number conversions.
    The conversion is independent of the current locale.
 
    If ``endptr`` is ``NULL``, convert the whole string.  Raise
-   :exc:`ValueError` and return ``-1.0`` if the string is not a valid
+   ValueError and return ``-1.0`` if the string is not a valid
    representation of a floating-point number.
 
    If endptr is not ``NULL``, convert as much of the string as
@@ -82,7 +82,41 @@ The following functions provide locale-independent string to number conversions.
    out-of-memory error), set the appropriate Python exception and
    return ``-1.0``.
 
-   .. versionadded:: 3.1
+   .. versionadded:: 2.7
+
+
+.. c:function:: double PyOS_ascii_strtod(const char *nptr, char **endptr)
+
+   Convert a string to a :c:type:`double`. This function behaves like the Standard C
+   function :c:func:`strtod` does in the C locale. It does this without changing the
+   current locale, since that would not be thread-safe.
+
+   :c:func:`PyOS_ascii_strtod` should typically be used for reading configuration
+   files or other non-user input that should be locale independent.
+
+   See the Unix man page :manpage:`strtod(2)` for details.
+
+   .. versionadded:: 2.4
+
+   .. deprecated:: 2.7
+      Use :c:func:`PyOS_string_to_double` instead.
+
+
+
+.. c:function:: char* PyOS_ascii_formatd(char *buffer, size_t buf_len, const char *format, double d)
+
+   Convert a :c:type:`double` to a string using the ``'.'`` as the decimal
+   separator. *format* is a :c:func:`printf`\ -style format string specifying the
+   number format. Allowed conversion characters are ``'e'``, ``'E'``, ``'f'``,
+   ``'F'``, ``'g'`` and ``'G'``.
+
+   The return value is a pointer to *buffer* with the converted string or NULL if
+   the conversion failed.
+
+   .. versionadded:: 2.4
+   .. deprecated:: 2.7
+      This function is removed in Python 2.7 and 3.1.  Use :func:`PyOS_double_to_string`
+      instead.
 
 
 .. c:function:: char* PyOS_double_to_string(double val, char format_code, int precision, int flags, int *ptype)
@@ -92,7 +126,7 @@ The following functions provide locale-independent string to number conversions.
 
    *format_code* must be one of ``'e'``, ``'E'``, ``'f'``, ``'F'``,
    ``'g'``, ``'G'`` or ``'r'``.  For ``'r'``, the supplied *precision*
-   must be 0 and is ignored.  The ``'r'`` format code specifies the
+   must be ``0`` and is ignored.  The ``'r'`` format code specifies the
    standard :func:`repr` format.
 
    *flags* can be zero or more of the values *Py_DTSF_SIGN*,
@@ -116,16 +150,32 @@ The following functions provide locale-independent string to number conversions.
    *NULL* if the conversion failed. The caller is responsible for freeing the
    returned string by calling :c:func:`PyMem_Free`.
 
-   .. versionadded:: 3.1
+   .. versionadded:: 2.7
 
 
-.. c:function:: int PyOS_stricmp(const char *s1, const char *s2)
+.. c:function:: double PyOS_ascii_atof(const char *nptr)
+
+   Convert a string to a :c:type:`double` in a locale-independent way.
+
+   See the Unix man page :manpage:`atof(2)` for details.
+
+   .. versionadded:: 2.4
+
+   .. deprecated:: 3.1
+      Use :c:func:`PyOS_string_to_double` instead.
+
+
+.. c:function:: char* PyOS_stricmp(char *s1, char *s2)
 
    Case insensitive comparison of strings. The function works almost
    identically to :c:func:`strcmp` except that it ignores the case.
 
+   .. versionadded:: 2.6
 
-.. c:function:: int PyOS_strnicmp(const char *s1, const char *s2, Py_ssize_t  size)
+
+.. c:function:: char* PyOS_strnicmp(char *s1, char *s2, Py_ssize_t  size)
 
    Case insensitive comparison of strings. The function works almost
    identically to :c:func:`strncmp` except that it ignores the case.
+
+   .. versionadded:: 2.6

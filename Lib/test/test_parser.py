@@ -2,10 +2,10 @@ import copy
 import parser
 import pickle
 import unittest
-import operator
+import sys
 import struct
-from test import support
-from test.support.script_helper import assert_python_failure
+from test import test_support as support
+from test.script_helper import assert_python_failure
 
 #
 #  First, we test that we can generate trees from valid source fragments,
@@ -20,7 +20,7 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         t = st1.totuple()
         try:
             st2 = parser.sequence2st(t)
-        except parser.ParserError as why:
+        except parser.ParserError, why:
             self.fail("could not roundtrip %r: %s" % (s, why))
 
         self.assertEqual(t, st2.totuple(),
@@ -30,13 +30,13 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.roundtrip(parser.expr, s)
 
     def test_flags_passed(self):
-        # The unicode literals flags has to be passed from the parser to AST
+        # The unicode literals flags has to be passed from the paser to AST
         # generation.
         suite = parser.suite("from __future__ import unicode_literals; x = ''")
         code = suite.compile()
         scope = {}
-        exec(code, {}, scope)
-        self.assertIsInstance(scope["x"], str)
+        exec code in scope
+        self.assertIsInstance(scope["x"], unicode)
 
     def check_suite(self, s):
         self.roundtrip(parser.suite, s)
@@ -53,10 +53,6 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.check_suite("def f(): (yield 1)*2")
         self.check_suite("def f(): return; yield 1")
         self.check_suite("def f(): yield 1; return")
-        self.check_suite("def f(): yield from 1")
-        self.check_suite("def f(): x = yield from 1")
-        self.check_suite("def f(): f((yield from 1))")
-        self.check_suite("def f(): yield 1; return 1")
         self.check_suite("def f():\n"
                          "    for x in range(30):\n"
                          "        yield x\n")
@@ -64,41 +60,39 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
                          "    if (yield):\n"
                          "        yield x\n")
 
-    def test_await_statement(self):
-        self.check_suite("async def f():\n await smth()")
-        self.check_suite("async def f():\n foo = await smth()")
-        self.check_suite("async def f():\n foo, bar = await smth()")
-        self.check_suite("async def f():\n (await smth())")
-        self.check_suite("async def f():\n foo((await smth()))")
-        self.check_suite("async def f():\n await foo(); return 42")
-
-    def test_async_with_statement(self):
-        self.check_suite("async def f():\n async with 1: pass")
-        self.check_suite("async def f():\n async with a as b, c as d: pass")
-
-    def test_async_for_statement(self):
-        self.check_suite("async def f():\n async for i in (): pass")
-        self.check_suite("async def f():\n async for i, b in (): pass")
-
-    def test_nonlocal_statement(self):
-        self.check_suite("def f():\n"
-                         "    x = 0\n"
-                         "    def g():\n"
-                         "        nonlocal x\n")
-        self.check_suite("def f():\n"
-                         "    x = y = 0\n"
-                         "    def g():\n"
-                         "        nonlocal x, y\n")
-
     def test_expressions(self):
         self.check_expr("foo(1)")
+        self.check_expr("{1:1}")
+        self.check_expr("{1:1, 2:2, 3:3}")
+        self.check_expr("{1:1, 2:2, 3:3,}")
+        self.check_expr("{1}")
+        self.check_expr("{1, 2, 3}")
+        self.check_expr("{1, 2, 3,}")
+        self.check_expr("[]")
+        self.check_expr("[1]")
         self.check_expr("[1, 2, 3]")
+        self.check_expr("[1, 2, 3,]")
+        self.check_expr("()")
+        self.check_expr("(1,)")
+        self.check_expr("(1, 2, 3)")
+        self.check_expr("(1, 2, 3,)")
         self.check_expr("[x**3 for x in range(20)]")
         self.check_expr("[x**3 for x in range(20) if x % 3]")
         self.check_expr("[x**3 for x in range(20) if x % 2 if x % 3]")
+        self.check_expr("[x+y for x in range(30) for y in range(20) if x % 2 if y % 3]")
+        #self.check_expr("[x for x in lambda: True, lambda: False if x()]")
         self.check_expr("list(x**3 for x in range(20))")
         self.check_expr("list(x**3 for x in range(20) if x % 3)")
         self.check_expr("list(x**3 for x in range(20) if x % 2 if x % 3)")
+        self.check_expr("list(x+y for x in range(30) for y in range(20) if x % 2 if y % 3)")
+        self.check_expr("{x**3 for x in range(30)}")
+        self.check_expr("{x**3 for x in range(30) if x % 3}")
+        self.check_expr("{x**3 for x in range(30) if x % 2 if x % 3}")
+        self.check_expr("{x+y for x in range(30) for y in range(20) if x % 2 if y % 3}")
+        self.check_expr("{x**3: y**2 for x, y in zip(range(30), range(30))}")
+        self.check_expr("{x**3: y**2 for x, y in zip(range(30), range(30)) if x % 3}")
+        self.check_expr("{x**3: y**2 for x, y in zip(range(30), range(30)) if x % 3 if y % 3}")
+        self.check_expr("{x:y for x in range(30) for y in range(20) if x % 2 if y % 3}")
         self.check_expr("foo(*args)")
         self.check_expr("foo(*args, **kw)")
         self.check_expr("foo(**kw)")
@@ -115,7 +109,6 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.check_expr("foo * bar")
         self.check_expr("foo / bar")
         self.check_expr("foo // bar")
-        self.check_expr("(foo := 1)")
         self.check_expr("lambda: 0")
         self.check_expr("lambda x: 0")
         self.check_expr("lambda *y: 0")
@@ -128,10 +121,17 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.check_expr("lambda foo=bar, blaz=blat+2, **z: 0")
         self.check_expr("lambda foo=bar, blaz=blat+2, *y, **z: 0")
         self.check_expr("lambda x, *y, **z: 0")
+        self.check_expr("lambda x: 5 if x else 2")
         self.check_expr("(x for x in range(10))")
         self.check_expr("foo(x for x in range(10))")
-        self.check_expr("...")
-        self.check_expr("a[...]")
+
+    def test_print(self):
+        self.check_suite("print")
+        self.check_suite("print 1")
+        self.check_suite("print 1,")
+        self.check_suite("print >>fp")
+        self.check_suite("print >>fp, 1")
+        self.check_suite("print >>fp, 1,")
 
     def test_simple_expression(self):
         # expr_stmt
@@ -140,45 +140,6 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
     def test_simple_assignments(self):
         self.check_suite("a = b")
         self.check_suite("a = b = c = d = e")
-
-    def test_var_annot(self):
-        self.check_suite("x: int = 5")
-        self.check_suite("y: List[T] = []; z: [list] = fun()")
-        self.check_suite("x: tuple = (1, 2)")
-        self.check_suite("d[f()]: int = 42")
-        self.check_suite("f(d[x]): str = 'abc'")
-        self.check_suite("x.y.z.w: complex = 42j")
-        self.check_suite("x: int")
-        self.check_suite("def f():\n"
-                         "    x: str\n"
-                         "    y: int = 5\n")
-        self.check_suite("class C:\n"
-                         "    x: str\n"
-                         "    y: int = 5\n")
-        self.check_suite("class C:\n"
-                         "    def __init__(self, x: int) -> None:\n"
-                         "        self.x: int = x\n")
-        # double check for nonsense
-        with self.assertRaises(SyntaxError):
-            exec("2+2: int", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("[]: int = 5", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("x, *y, z: int = range(5)", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("x: int = 1, y = 2", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("u = v: int", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("False: int", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("x.False: int", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("x.y,: int", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("[0]: int", {}, {})
-        with self.assertRaises(SyntaxError):
-            exec("f(): int", {}, {})
 
     def test_simple_augmented_assignments(self):
         self.check_suite("a += b")
@@ -221,42 +182,8 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.check_suite("@funcattrs()\n"
                          "def f(): pass")
 
-        # keyword-only arguments
-        self.check_suite("def f(*, a): pass")
-        self.check_suite("def f(*, a = 5): pass")
-        self.check_suite("def f(*, a = 5, b): pass")
-        self.check_suite("def f(*, a, b = 5): pass")
-        self.check_suite("def f(*, a, b = 5, **kwds): pass")
-        self.check_suite("def f(*args, a): pass")
-        self.check_suite("def f(*args, a = 5): pass")
-        self.check_suite("def f(*args, a = 5, b): pass")
-        self.check_suite("def f(*args, a, b = 5): pass")
-        self.check_suite("def f(*args, a, b = 5, **kwds): pass")
-
-        # positional-only arguments
-        self.check_suite("def f(a, /): pass")
-        self.check_suite("def f(a, /,): pass")
-        self.check_suite("def f(a, b, /): pass")
-        self.check_suite("def f(a, b, /, c): pass")
-        self.check_suite("def f(a, b, /, c = 6): pass")
-        self.check_suite("def f(a, b, /, c, *, d): pass")
-        self.check_suite("def f(a, b, /, c = 1, *, d): pass")
-        self.check_suite("def f(a, b, /, c, *, d = 1): pass")
-        self.check_suite("def f(a, b=1, /, c=2, *, d = 3): pass")
-        self.check_suite("def f(a=0, b=1, /, c=2, *, d = 3): pass")
-
-        # function annotations
-        self.check_suite("def f(a: int): pass")
-        self.check_suite("def f(a: int = 5): pass")
-        self.check_suite("def f(*args: list): pass")
-        self.check_suite("def f(**kwds: dict): pass")
-        self.check_suite("def f(*, a: int): pass")
-        self.check_suite("def f(*, a: int = 5): pass")
-        self.check_suite("def f() -> int: pass")
-
     def test_class_defs(self):
         self.check_suite("class foo():pass")
-        self.check_suite("class foo(object):pass")
         self.check_suite("@class_decorator\n"
                          "class foo():pass")
         self.check_suite("@class_decorator(arg)\n"
@@ -264,6 +191,7 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.check_suite("@decorator1\n"
                          "@decorator2\n"
                          "class foo():pass")
+
 
     def test_import_from_statement(self):
         self.check_suite("from sys.path import *")
@@ -300,14 +228,8 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
     def test_relative_imports(self):
         self.check_suite("from . import name")
         self.check_suite("from .. import name")
-        # check all the way up to '....', since '...' is tokenized
-        # differently from '.' (it's an ellipsis token).
-        self.check_suite("from ... import name")
-        self.check_suite("from .... import name")
         self.check_suite("from .pkg import name")
         self.check_suite("from ..pkg import name")
-        self.check_suite("from ...pkg import name")
-        self.check_suite("from ....pkg import name")
 
     def test_pep263(self):
         self.check_suite("# -*- coding: iso-8859-1 -*-\n"
@@ -331,9 +253,11 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
         self.check_suite("try: pass\nexcept: pass\nelse: pass\n"
                          "finally: pass\n")
 
-    def test_if_stmt(self):
-        self.check_suite("if True:\n  pass\nelse:\n  pass\n")
-        self.check_suite("if True:\n  pass\nelif True:\n  pass\nelse:\n  pass\n")
+    def test_except_clause(self):
+        self.check_suite("try: pass\nexcept: pass\n")
+        self.check_suite("try: pass\nexcept A: pass\n")
+        self.check_suite("try: pass\nexcept A, e: pass\n")
+        self.check_suite("try: pass\nexcept A as e: pass\n")
 
     def test_position(self):
         # An absolutely minimal test of position information.  Better
@@ -387,94 +311,6 @@ class RoundtripLegalSyntaxTestCase(unittest.TestCase):
                                                   col_info=True))),
                          [list(x) for x in expected])
 
-    def test_extended_unpacking(self):
-        self.check_suite("*a = y")
-        self.check_suite("x, *b, = m")
-        self.check_suite("[*a, *b] = y")
-        self.check_suite("for [*x, b] in x: pass")
-
-    def test_raise_statement(self):
-        self.check_suite("raise\n")
-        self.check_suite("raise e\n")
-        self.check_suite("try:\n"
-                         "    suite\n"
-                         "except Exception as e:\n"
-                         "    raise ValueError from e\n")
-
-    def test_list_displays(self):
-        self.check_expr('[]')
-        self.check_expr('[*{2}, 3, *[4]]')
-
-    def test_set_displays(self):
-        self.check_expr('{*{2}, 3, *[4]}')
-        self.check_expr('{2}')
-        self.check_expr('{2,}')
-        self.check_expr('{2, 3}')
-        self.check_expr('{2, 3,}')
-
-    def test_dict_displays(self):
-        self.check_expr('{}')
-        self.check_expr('{a:b}')
-        self.check_expr('{a:b,}')
-        self.check_expr('{a:b, c:d}')
-        self.check_expr('{a:b, c:d,}')
-        self.check_expr('{**{}}')
-        self.check_expr('{**{}, 3:4, **{5:6, 7:8}}')
-
-    def test_argument_unpacking(self):
-        self.check_expr("f(*a, **b)")
-        self.check_expr('f(a, *b, *c, *d)')
-        self.check_expr('f(**a, **b)')
-        self.check_expr('f(2, *a, *b, **b, **c, **d)')
-        self.check_expr("f(*b, *() or () and (), **{} and {}, **() or {})")
-
-    def test_set_comprehensions(self):
-        self.check_expr('{x for x in seq}')
-        self.check_expr('{f(x) for x in seq}')
-        self.check_expr('{f(x) for x in seq if condition(x)}')
-
-    def test_dict_comprehensions(self):
-        self.check_expr('{x:x for x in seq}')
-        self.check_expr('{x**2:x[3] for x in seq if condition(x)}')
-        self.check_expr('{x:x for x in seq1 for y in seq2 if condition(x, y)}')
-
-    def test_named_expressions(self):
-        self.check_suite("(a := 1)")
-        self.check_suite("(a := a)")
-        self.check_suite("if (match := pattern.search(data)) is None: pass")
-        self.check_suite("while match := pattern.search(f.read()): pass")
-        self.check_suite("[y := f(x), y**2, y**3]")
-        self.check_suite("filtered_data = [y for x in data if (y := f(x)) is None]")
-        self.check_suite("(y := f(x))")
-        self.check_suite("y0 = (y1 := f(x))")
-        self.check_suite("foo(x=(y := f(x)))")
-        self.check_suite("def foo(answer=(p := 42)): pass")
-        self.check_suite("def foo(answer: (p := 42) = 5): pass")
-        self.check_suite("lambda: (x := 1)")
-        self.check_suite("(x := lambda: 1)")
-        self.check_suite("(x := lambda: (y := 1))")  # not in PEP
-        self.check_suite("lambda line: (m := re.match(pattern, line)) and m.group(1)")
-        self.check_suite("x = (y := 0)")
-        self.check_suite("(z:=(y:=(x:=0)))")
-        self.check_suite("(info := (name, phone, *rest))")
-        self.check_suite("(x:=1,2)")
-        self.check_suite("(total := total + tax)")
-        self.check_suite("len(lines := f.readlines())")
-        self.check_suite("foo(x := 3, cat='vector')")
-        self.check_suite("foo(cat=(category := 'vector'))")
-        self.check_suite("if any(len(longline := l) >= 100 for l in lines): print(longline)")
-        self.check_suite(
-            "if env_base := os.environ.get('PYTHONUSERBASE', None): return env_base"
-        )
-        self.check_suite(
-            "if self._is_special and (ans := self._check_nans(context=context)): return ans"
-        )
-        self.check_suite("foo(b := 2, a=1)")
-        self.check_suite("foo(b := 2, a=1)")
-        self.check_suite("foo((b := 2), a=1)")
-        self.check_suite("foo(c=(b := 2), a=1)")
-        self.check_suite("{(x := C(i)).q: x for i in y}")
-
 
 #
 #  Second, we take *invalid* trees and make sure we get ParserError
@@ -498,10 +334,10 @@ class IllegalSyntaxTestCase(unittest.TestCase):
     def test_illegal_terminal(self):
         tree = \
             (257,
-             (269,
-              (270,
-               (271,
-                (277,
+             (267,
+              (268,
+               (269,
+                (274,
                  (1,))),
                (4, ''))),
              (4, ''),
@@ -509,21 +345,21 @@ class IllegalSyntaxTestCase(unittest.TestCase):
         self.check_bad_tree(tree, "too small items in terminal node")
         tree = \
             (257,
-             (269,
-              (270,
-               (271,
-                (277,
-                 (1, b'pass'))),
+             (267,
+              (268,
+               (269,
+                (274,
+                 (1, u'pass'))),
                (4, ''))),
              (4, ''),
              (0, ''))
         self.check_bad_tree(tree, "non-string second item in terminal node")
         tree = \
             (257,
-             (269,
-              (270,
-               (271,
-                (277,
+             (267,
+              (268,
+               (269,
+                (274,
                  (1, 'pass', '0', 0))),
                (4, ''))),
              (4, ''),
@@ -531,10 +367,10 @@ class IllegalSyntaxTestCase(unittest.TestCase):
         self.check_bad_tree(tree, "non-integer third item in terminal node")
         tree = \
             (257,
-             (269,
-              (270,
-               (271,
-                (277,
+             (267,
+              (268,
+               (269,
+                (274,
                  (1, 'pass', 0, 0))),
                (4, ''))),
              (4, ''),
@@ -660,6 +496,29 @@ class IllegalSyntaxTestCase(unittest.TestCase):
            (0, ''))))
         self.check_bad_tree(tree, "def f():\n  return 1\n  yield 1")
 
+    def test_print_chevron_comma(self):
+        # Illegal input: print >>fp,
+        tree = \
+        (257,
+         (264,
+          (265,
+           (266,
+            (268,
+             (1, 'print'),
+             (35, '>>'),
+             (290,
+              (291,
+               (292,
+                (293,
+                 (295,
+                  (296,
+                   (297,
+                    (298, (299, (300, (301, (302, (303, (1, 'fp')))))))))))))),
+             (12, ','))),
+           (4, ''))),
+         (0, ''))
+        self.check_bad_tree(tree, "print >>fp,")
+
     def test_a_comma_comma_c(self):
         # Illegal input: a,,c
         tree = \
@@ -732,52 +591,30 @@ class IllegalSyntaxTestCase(unittest.TestCase):
         self.check_bad_tree(tree, "malformed global ast")
 
     def test_missing_import_source(self):
-        # from import fred
+        # from import a
         tree = \
             (257,
-             (268,
-              (269,
-               (270,
-                (282,
-                 (284, (1, 'from'), (1, 'import'),
-                  (287, (285, (1, 'fred')))))),
+             (267,
+              (268,
+               (269,
+                (281,
+                 (283, (1, 'from'), (1, 'import'),
+                  (286, (284, (1, 'fred')))))),
                (4, ''))),
              (4, ''), (0, ''))
-        self.check_bad_tree(tree, "from import fred")
+        self.check_bad_tree(tree, "from import a")
 
     def test_illegal_encoding(self):
         # Illegal encoding declaration
         tree = \
-            (341,
+            (339,
              (257, (0, '')))
         self.check_bad_tree(tree, "missed encoding")
         tree = \
-            (341,
+            (339,
              (257, (0, '')),
-              b'iso-8859-1')
+              u'iso-8859-1')
         self.check_bad_tree(tree, "non-string encoding")
-        tree = \
-            (341,
-             (257, (0, '')),
-              '\udcff')
-        with self.assertRaises(UnicodeEncodeError):
-            parser.sequence2st(tree)
-
-    def test_invalid_node_id(self):
-        tree = (257, (269, (-7, '')))
-        self.check_bad_tree(tree, "negative node id")
-        tree = (257, (269, (99, '')))
-        self.check_bad_tree(tree, "invalid token id")
-        tree = (257, (269, (9999, (0, ''))))
-        self.check_bad_tree(tree, "invalid symbol id")
-
-    def test_ParserError_message(self):
-        try:
-            parser.sequence2st((257,(269,(257,(0,'')))))
-        except parser.ParserError as why:
-            self.assertIn("compound_stmt", str(why))  # Expected
-            self.assertIn("file_input", str(why))     # Got
-
 
 
 class CompileTestCase(unittest.TestCase):
@@ -793,7 +630,7 @@ class CompileTestCase(unittest.TestCase):
         st = parser.suite('x = 2; y = x + 3')
         code = parser.compilest(st)
         globs = {}
-        exec(code, globs)
+        exec code in globs
         self.assertEqual(globs['y'], 5)
 
     def test_compile_error(self):
@@ -801,9 +638,9 @@ class CompileTestCase(unittest.TestCase):
         self.assertRaises(SyntaxError, parser.compilest, st)
 
     def test_compile_badunicode(self):
-        st = parser.suite('a = "\\U12345678"')
+        st = parser.suite('a = u"\U12345678"')
         self.assertRaises(SyntaxError, parser.compilest, st)
-        st = parser.suite('a = "\\u1"')
+        st = parser.suite('a = u"\u1"')
         self.assertRaises(SyntaxError, parser.compilest, st)
 
     def test_issue_9011(self):
@@ -816,27 +653,6 @@ class CompileTestCase(unittest.TestCase):
         code2 = parser.compilest(st)
         self.assertEqual(eval(code2), -3)
 
-    def test_compile_filename(self):
-        st = parser.expr('a + 5')
-        code = parser.compilest(st)
-        self.assertEqual(code.co_filename, '<syntax-tree>')
-        code = st.compile()
-        self.assertEqual(code.co_filename, '<syntax-tree>')
-        for filename in 'file.py', b'file.py':
-            code = parser.compilest(st, filename)
-            self.assertEqual(code.co_filename, 'file.py')
-            code = st.compile(filename)
-            self.assertEqual(code.co_filename, 'file.py')
-        for filename in bytearray(b'file.py'), memoryview(b'file.py'):
-            with self.assertWarns(DeprecationWarning):
-                code = parser.compilest(st, filename)
-            self.assertEqual(code.co_filename, 'file.py')
-            with self.assertWarns(DeprecationWarning):
-                code = st.compile(filename)
-            self.assertEqual(code.co_filename, 'file.py')
-        self.assertRaises(TypeError, parser.compilest, st, list(b'file.py'))
-        self.assertRaises(TypeError, st.compile, list(b'file.py'))
-
 
 class ParserStackLimitTestCase(unittest.TestCase):
     """try to push the parser to/over its limits.
@@ -846,8 +662,6 @@ class ParserStackLimitTestCase(unittest.TestCase):
         return "["*level+"]"*level
 
     def test_deeply_nested_list(self):
-        # This has fluctuated between 99 levels in 2.x, down to 93 levels in
-        # 3.7.X and back up to 99 in 3.8.X. Related to MAXSTACK size in Parser.h
         e = self._nested_expression(99)
         st = parser.expr(e)
         st.compile()
@@ -862,67 +676,6 @@ class ParserStackLimitTestCase(unittest.TestCase):
 
 class STObjectTestCase(unittest.TestCase):
     """Test operations on ST objects themselves"""
-
-    def test_comparisons(self):
-        # ST objects should support order and equality comparisons
-        st1 = parser.expr('2 + 3')
-        st2 = parser.suite('x = 2; y = x + 3')
-        st3 = parser.expr('list(x**3 for x in range(20))')
-        st1_copy = parser.expr('2 + 3')
-        st2_copy = parser.suite('x = 2; y = x + 3')
-        st3_copy = parser.expr('list(x**3 for x in range(20))')
-
-        # exercise fast path for object identity
-        self.assertEqual(st1 == st1, True)
-        self.assertEqual(st2 == st2, True)
-        self.assertEqual(st3 == st3, True)
-        # slow path equality
-        self.assertEqual(st1, st1_copy)
-        self.assertEqual(st2, st2_copy)
-        self.assertEqual(st3, st3_copy)
-        self.assertEqual(st1 == st2, False)
-        self.assertEqual(st1 == st3, False)
-        self.assertEqual(st2 == st3, False)
-        self.assertEqual(st1 != st1, False)
-        self.assertEqual(st2 != st2, False)
-        self.assertEqual(st3 != st3, False)
-        self.assertEqual(st1 != st1_copy, False)
-        self.assertEqual(st2 != st2_copy, False)
-        self.assertEqual(st3 != st3_copy, False)
-        self.assertEqual(st2 != st1, True)
-        self.assertEqual(st1 != st3, True)
-        self.assertEqual(st3 != st2, True)
-        # we don't particularly care what the ordering is;  just that
-        # it's usable and self-consistent
-        self.assertEqual(st1 < st2, not (st2 <= st1))
-        self.assertEqual(st1 < st3, not (st3 <= st1))
-        self.assertEqual(st2 < st3, not (st3 <= st2))
-        self.assertEqual(st1 < st2, st2 > st1)
-        self.assertEqual(st1 < st3, st3 > st1)
-        self.assertEqual(st2 < st3, st3 > st2)
-        self.assertEqual(st1 <= st2, st2 >= st1)
-        self.assertEqual(st3 <= st1, st1 >= st3)
-        self.assertEqual(st2 <= st3, st3 >= st2)
-        # transitivity
-        bottom = min(st1, st2, st3)
-        top = max(st1, st2, st3)
-        mid = sorted([st1, st2, st3])[1]
-        self.assertTrue(bottom < mid)
-        self.assertTrue(bottom < top)
-        self.assertTrue(mid < top)
-        self.assertTrue(bottom <= mid)
-        self.assertTrue(bottom <= top)
-        self.assertTrue(mid <= top)
-        self.assertTrue(bottom <= bottom)
-        self.assertTrue(mid <= mid)
-        self.assertTrue(top <= top)
-        # interaction with other types
-        self.assertEqual(st1 == 1588.602459, False)
-        self.assertEqual('spanish armada' != st2, True)
-        self.assertRaises(TypeError, operator.ge, st3, None)
-        self.assertRaises(TypeError, operator.le, False, st1)
-        self.assertRaises(TypeError, operator.lt, st1, 1815)
-        self.assertRaises(TypeError, operator.gt, b'waterloo', st2)
 
     def test_copy_pickle(self):
         sts = [
@@ -950,8 +703,8 @@ class STObjectTestCase(unittest.TestCase):
                 return (n + 3) & ~3
             return 1 << (n - 1).bit_length()
 
-        basesize = support.calcobjsize('Piii')
-        nodesize = struct.calcsize('hP3iP0h2i')
+        basesize = support.calcobjsize('Pii')
+        nodesize = struct.calcsize('hP3iP0h')
         def sizeofchildren(node):
             if node is None:
                 return 0
@@ -980,12 +733,15 @@ class STObjectTestCase(unittest.TestCase):
 
     # XXX tests for pickling and unpickling of ST objects should go here
 
-class OtherParserCase(unittest.TestCase):
+def test_main():
+    support.run_unittest(
+        RoundtripLegalSyntaxTestCase,
+        IllegalSyntaxTestCase,
+        CompileTestCase,
+        ParserStackLimitTestCase,
+        STObjectTestCase,
+    )
 
-    def test_two_args_to_expr(self):
-        # See bug #12264
-        with self.assertRaises(TypeError):
-            parser.expr("a", "b")
 
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

@@ -1,5 +1,6 @@
-import io
 import sys
+
+from cStringIO import StringIO
 
 import unittest
 
@@ -12,7 +13,7 @@ class TestSetups(unittest.TestCase):
 
     def getRunner(self):
         return unittest.TextTestRunner(resultclass=resultFactory,
-                                          stream=io.StringIO())
+                                          stream=StringIO())
     def runTests(self, *cases):
         suite = unittest.TestSuite()
         for case in cases:
@@ -111,7 +112,7 @@ class TestSetups(unittest.TestCase):
         self.assertEqual(len(result.errors), 1)
         error, _ = result.errors[0]
         self.assertEqual(str(error),
-                    'setUpClass (%s.%s)' % (__name__, BrokenTest.__qualname__))
+                    'setUpClass (%s.BrokenTest)' % __name__)
 
     def test_error_in_teardown_class(self):
         class Test(unittest.TestCase):
@@ -144,7 +145,7 @@ class TestSetups(unittest.TestCase):
 
         error, _ = result.errors[0]
         self.assertEqual(str(error),
-                    'tearDownClass (%s.%s)' % (__name__, Test.__qualname__))
+                    'tearDownClass (%s.Test)' % __name__)
 
     def test_class_not_torndown_when_setup_fails(self):
         class Test(unittest.TestCase):
@@ -414,8 +415,7 @@ class TestSetups(unittest.TestCase):
         self.assertEqual(len(result.errors), 0)
         self.assertEqual(len(result.skipped), 1)
         skipped = result.skipped[0][0]
-        self.assertEqual(str(skipped),
-                    'setUpClass (%s.%s)' % (__name__, Test.__qualname__))
+        self.assertEqual(str(skipped), 'setUpClass (%s.Test)' % __name__)
 
     def test_skiptest_in_setupmodule(self):
         class Test(unittest.TestCase):
@@ -495,13 +495,14 @@ class TestSetups(unittest.TestCase):
         Test.__module__ = 'Module'
         sys.modules['Module'] = Module
 
+        _suite = unittest.defaultTestLoader.loadTestsFromTestCase(Test)
+        suite = unittest.TestSuite()
+        suite.addTest(_suite)
+
         messages = ('setUpModule', 'tearDownModule', 'setUpClass', 'tearDownClass', 'test_something')
         for phase, msg in enumerate(messages):
-            _suite = unittest.defaultTestLoader.loadTestsFromTestCase(Test)
-            suite = unittest.TestSuite([_suite])
-            with self.assertRaisesRegex(Exception, msg):
+            with self.assertRaisesRegexp(Exception, msg):
                 suite.debug()
-
 
 if __name__ == '__main__':
     unittest.main()

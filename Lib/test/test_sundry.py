@@ -1,32 +1,31 @@
 """Do a minimal test of all the modules that aren't otherwise tested."""
-import importlib
-import platform
+
+from test import test_support
 import sys
-from test import support
 import unittest
 
+
 class TestUntestedModules(unittest.TestCase):
-    def test_untested_modules_can_be_imported(self):
-        untested = ('encodings', 'formatter')
-        with support.check_warnings(quiet=True):
-            for name in untested:
-                try:
-                    support.import_module('test.test_{}'.format(name))
-                except unittest.SkipTest:
-                    importlib.import_module(name)
-                else:
-                    self.fail('{} has tests even though test_sundry claims '
-                              'otherwise'.format(name))
+    def test_at_least_import_untested_modules(self):
+        with test_support.check_warnings(quiet=True):
+            import CGIHTTPServer
+            import audiodev
+            import cgitb
+            import code
+            import compileall
 
             import distutils.bcppcompiler
             import distutils.ccompiler
             import distutils.cygwinccompiler
+            import distutils.emxccompiler
             import distutils.filelist
+            if sys.platform.startswith('win'):
+                import distutils.msvccompiler
             import distutils.text_file
             import distutils.unixccompiler
 
             import distutils.command.bdist_dumb
-            if sys.platform.startswith('win') and not platform.win32_is_iot():
+            if sys.platform.startswith('win'):
                 import distutils.command.bdist_msi
             import distutils.command.bdist
             import distutils.command.bdist_rpm
@@ -44,14 +43,50 @@ class TestUntestedModules(unittest.TestCase):
             import distutils.command.sdist
             import distutils.command.upload
 
-            import html.entities
-
+            import encodings
+            import formatter
+            import getpass
+            import htmlentitydefs
+            import ihooks
+            import imputil
+            import keyword
+            import linecache
+            import mailcap
+            import mimify
+            import nntplib
+            import nturl2path
+            import opcode
+            import os2emxpath
+            import pdb
+            import posixfile
+            import pstats
+            import py_compile
+            import rexec
+            import sched
+            import sndhdr
+            import statvfs
+            import stringold
+            import sunau
+            import sunaudio
+            import symbol
+            import tabnanny
+            import toaiff
+            import token
             try:
-                import tty  # Not available on Windows
+                import tty     # not available on Windows
             except ImportError:
-                if support.verbose:
-                    print("skipping tty")
+                if test_support.verbose:
+                    print "skipping tty"
 
+            # Can't test the "user" module -- if the user has a ~/.pythonrc.py, it
+            # can screw up all sorts of things (esp. if it prints!).
+            #import user
+            import webbrowser
+            import xml
+
+
+def test_main():
+    test_support.run_unittest(TestUntestedModules)
 
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

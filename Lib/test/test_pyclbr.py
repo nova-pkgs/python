@@ -2,17 +2,20 @@
    Test cases for pyclbr.py
    Nick Mathewson
 '''
-
+from test.test_support import run_unittest, import_module
 import sys
-from textwrap import dedent
-from types import FunctionType, MethodType, BuiltinFunctionType
+from types import ClassType, FunctionType, MethodType, BuiltinFunctionType
 import pyclbr
-from unittest import TestCase, main as unittest_main
-from test.test_importlib import util as test_importlib_util
-
+from unittest import TestCase
 
 StaticMethodType = type(staticmethod(lambda: None))
 ClassMethodType = type(classmethod(lambda c: None))
+
+# Silence Py3k warning
+import_module('commands', deprecated=True)
+
+# This next line triggers an error on old versions of pyclbr.
+from commands import getstatus
 
 # Here we test the python class browser code.
 #
@@ -27,13 +30,13 @@ class PyclbrTest(TestCase):
         ''' succeed iff {l1} - {ignore} == {l2} - {ignore} '''
         missing = (set(l1) ^ set(l2)) - set(ignore)
         if missing:
-            print("l1=%r\nl2=%r\nignore=%r" % (l1, l2, ignore), file=sys.stderr)
+            print >>sys.stderr, "l1=%r\nl2=%r\nignore=%r" % (l1, l2, ignore)
             self.fail("%r missing" % missing.pop())
 
     def assertHasattr(self, obj, attr, ignore):
         ''' succeed iff hasattr(obj,attr) or attr in ignore. '''
         if attr in ignore: return
-        if not hasattr(obj, attr): print("???", attr)
+        if not hasattr(obj, attr): print "???", attr
         self.assertTrue(hasattr(obj, attr),
                         'expected hasattr(%r, %r)' % (obj, attr))
 
@@ -42,7 +45,7 @@ class PyclbrTest(TestCase):
         ''' succeed iff key in obj or key in ignore. '''
         if key in ignore: return
         if key not in obj:
-            print("***",key, file=sys.stderr)
+            print >>sys.stderr, "***", key
         self.assertIn(key, obj)
 
     def assertEqualsOrIgnored(self, a, b, ignore):
@@ -56,8 +59,6 @@ class PyclbrTest(TestCase):
             ignore are ignored.   If no module is provided, the appropriate
             module is loaded with __import__.'''
 
-        ignore = set(ignore) | set(['object'])
-
         if module is None:
             # Import it.
             # ('<silly>' is to work around an API silliness in __import__)
@@ -67,17 +68,23 @@ class PyclbrTest(TestCase):
 
         def ismethod(oclass, obj, name):
             classdict = oclass.__dict__
-            if isinstance(obj, MethodType):
-                # could be a classmethod
-                if (not isinstance(classdict[name], ClassMethodType) or
-                    obj.__self__ is not oclass):
+            if isinstance(obj, FunctionType):
+                if not isinstance(classdict[name], StaticMethodType):
                     return False
-            elif not isinstance(obj, FunctionType):
-                return False
+            else:
+                if not  isinstance(obj, MethodType):
+                    return False
+                if obj.im_self is not None:
+                    if (not isinstance(classdict[name], ClassMethodType) or
+                        obj.im_self is not oclass):
+                        return False
+                else:
+                    if not isinstance(classdict[name], FunctionType):
+                        return False
 
             objname = obj.__name__
             if objname.startswith("__") and not objname.endswith("__"):
-                objname = "_%s%s" % (oclass.__name__, objname)
+                objname = "_%s%s" % (obj.im_class.__name__, objname)
             return objname == name
 
         # Make sure the toplevel functions and classes are the same.
@@ -92,7 +99,7 @@ class PyclbrTest(TestCase):
                     continue   # skip functions that came from somewhere else
                 self.assertEqual(py_item.__module__, value.module)
             else:
-                self.assertIsInstance(py_item, type)
+                self.assertIsInstance(py_item, (ClassType, type))
                 if py_item.__module__ != moduleName:
                     continue   # skip classes that came from somewhere else
 
@@ -103,7 +110,7 @@ class PyclbrTest(TestCase):
                 try:
                     self.assertListEq(real_bases, pyclbr_bases, ignore)
                 except:
-                    print("class=%s" % py_item, file=sys.stderr)
+                    print >>sys.stderr, "class=%s" % py_item
                     raise
 
                 actualMethods = []
@@ -125,96 +132,35 @@ class PyclbrTest(TestCase):
                                                ignore)
                     # can't check file or lineno
                 except:
-                    print("class=%s" % py_item, file=sys.stderr)
+                    print >>sys.stderr, "class=%s" % py_item
                     raise
 
         # Now check for missing stuff.
         def defined_in(item, module):
-            if isinstance(item, type):
+            if isinstance(item, ClassType):
                 return item.__module__ == module.__name__
             if isinstance(item, FunctionType):
-                return item.__globals__ is module.__dict__
+                return item.func_globals is module.__dict__
             return False
         for name in dir(module):
             item = getattr(module, name)
-            if isinstance(item,  (type, FunctionType)):
+            if isinstance(item,  (ClassType, FunctionType)):
                 if defined_in(item, module):
                     self.assertHaskey(dict, name, ignore)
 
     def test_easy(self):
         self.checkModule('pyclbr')
-        # XXX: Metaclasses are not supported
-        # self.checkModule('ast')
-        self.checkModule('doctest', ignore=("TestResults", "_SpoofOut",
-                                            "DocTestCase", '_DocTestSuite'))
-        self.checkModule('difflib', ignore=("Match",))
+        self.checkModule('doctest', ignore=("DocTestCase",))
+        # Silence Py3k warning
+        rfc822 = import_module('rfc822', deprecated=True)
+        self.checkModule('rfc822', rfc822)
+        self.checkModule('difflib')
 
     def test_decorators(self):
         # XXX: See comment in pyclbr_input.py for a test that would fail
         #      if it were not commented out.
         #
-        self.checkModule('test.pyclbr_input', ignore=['om'])
-
-    def test_nested(self):
-        mb = pyclbr
-        # Set arguments for descriptor creation and _creat_tree call.
-        m, p, f, t, i = 'test', '', 'test.py', {}, None
-        source = dedent("""\
-        def f0:
-            def f1(a,b,c):
-                def f2(a=1, b=2, c=3): pass
-                    return f1(a,b,d)
-            class c1: pass
-        class C0:
-            "Test class."
-            def F1():
-                "Method."
-                return 'return'
-            class C1():
-                class C2:
-                    "Class nested within nested class."
-                    def F3(): return 1+1
-
-        """)
-        actual = mb._create_tree(m, p, f, source, t, i)
-
-        # Create descriptors, linked together, and expected dict.
-        f0 = mb.Function(m, 'f0', f, 1)
-        f1 = mb._nest_function(f0, 'f1', 2)
-        f2 = mb._nest_function(f1, 'f2', 3)
-        c1 = mb._nest_class(f0, 'c1', 5)
-        C0 = mb.Class(m, 'C0', None, f, 6)
-        F1 = mb._nest_function(C0, 'F1', 8)
-        C1 = mb._nest_class(C0, 'C1', 11)
-        C2 = mb._nest_class(C1, 'C2', 12)
-        F3 = mb._nest_function(C2, 'F3', 14)
-        expected = {'f0':f0, 'C0':C0}
-
-        def compare(parent1, children1, parent2, children2):
-            """Return equality of tree pairs.
-
-            Each parent,children pair define a tree.  The parents are
-            assumed equal.  Comparing the children dictionaries as such
-            does not work due to comparison by identity and double
-            linkage.  We separate comparing string and number attributes
-            from comparing the children of input children.
-            """
-            self.assertEqual(children1.keys(), children2.keys())
-            for ob in children1.values():
-                self.assertIs(ob.parent, parent1)
-            for ob in children2.values():
-                self.assertIs(ob.parent, parent2)
-            for key in children1.keys():
-                o1, o2 = children1[key], children2[key]
-                t1 = type(o1), o1.name, o1.file, o1.module, o1.lineno
-                t2 = type(o2), o2.name, o2.file, o2.module, o2.lineno
-                self.assertEqual(t1, t2)
-                if type(o1) is mb.Class:
-                    self.assertEqual(o1.methods, o2.methods)
-                # Skip superclasses for now as not part of example
-                compare(o1, o1.children, o2, o2.children)
-
-        compare(None, actual, None, expected)
+        self.checkModule('test.pyclbr_input')
 
     def test_others(self):
         cm = self.checkModule
@@ -222,42 +168,35 @@ class PyclbrTest(TestCase):
         # These were once about the 10 longest modules
         cm('random', ignore=('Random',))  # from _random import Random as CoreGenerator
         cm('cgi', ignore=('log',))      # set with = in module
-        cm('pickle', ignore=('partial', 'PickleBuffer'))
-        # TODO(briancurtin): openfp is deprecated as of 3.7.
-        # Update this once it has been removed.
-        cm('aifc', ignore=('openfp', '_aifc_params'))  # set with = in module
-        cm('sre_parse', ignore=('dump', 'groups', 'pos')) # from sre_constants import *; property
+        cm('urllib', ignore=('_CFNumberToInt32',
+                             '_CStringFromCFString',
+                             '_CFSetup',
+                             'getproxies_registry',
+                             'proxy_bypass_registry',
+                             'proxy_bypass_macosx_sysconf',
+                             'open_https',
+                             'getproxies_macosx_sysconf',
+                             'getproxies_internetconfig',)) # not on all platforms
+        cm('pickle')
+        cm('aifc', ignore=('openfp',))  # set with = in module
+        cm('Cookie')
+        cm('sre_parse', ignore=('dump', 'groups')) # from sre_constants import *; property
         cm('pdb')
-        cm('pydoc', ignore=('input', 'output',)) # properties
+        cm('pydoc')
 
         # Tests for modules inside packages
         cm('email.parser')
         cm('test.test_pyclbr')
 
-
-class ReadmoduleTests(TestCase):
-
-    def setUp(self):
-        self._modules = pyclbr._modules.copy()
-
-    def tearDown(self):
-        pyclbr._modules = self._modules
-
-
-    def test_dotted_name_not_a_package(self):
+    def test_issue_14798(self):
         # test ImportError is raised when the first part of a dotted name is
-        # not a package.
-        #
-        # Issue #14798.
+        # not a package
         self.assertRaises(ImportError, pyclbr.readmodule_ex, 'asyncore.foo')
 
-    def test_module_has_no_spec(self):
-        module_name = "doesnotexist"
-        assert module_name not in pyclbr._modules
-        with test_importlib_util.uncache(module_name):
-            with self.assertRaises(ModuleNotFoundError):
-                pyclbr.readmodule_ex(module_name)
+
+def test_main():
+    run_unittest(PyclbrTest)
 
 
 if __name__ == "__main__":
-    unittest_main()
+    test_main()

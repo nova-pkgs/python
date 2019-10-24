@@ -1,168 +1,181 @@
-"""Test module for the custom examples
+"""Test module for the noddy examples
 
-Custom 1:
+Noddy 1:
 
->>> import custom
->>> c1 = custom.Custom()
->>> c2 = custom.Custom()
->>> del c1
->>> del c2
+>>> import noddy
+>>> n1 = noddy.Noddy()
+>>> n2 = noddy.Noddy()
+>>> del n1
+>>> del n2
 
 
-Custom 2
+Noddy 2
 
->>> import custom2
->>> c1 = custom2.Custom('jim', 'fulton', 42)
->>> c1.first
+>>> import noddy2
+>>> n1 = noddy2.Noddy('jim', 'fulton', 42)
+>>> n1.first
 'jim'
->>> c1.last
+>>> n1.last
 'fulton'
->>> c1.number
+>>> n1.number
 42
->>> c1.name()
+>>> n1.name()
 'jim fulton'
->>> c1.first = 'will'
->>> c1.name()
+>>> n1.first = 'will'
+>>> n1.name()
 'will fulton'
->>> c1.last = 'tell'
->>> c1.name()
+>>> n1.last = 'tell'
+>>> n1.name()
 'will tell'
->>> del c1.first
->>> c1.name()
+>>> del n1.first
+>>> n1.name()
 Traceback (most recent call last):
 ...
 AttributeError: first
->>> c1.first
+>>> n1.first
 Traceback (most recent call last):
 ...
 AttributeError: first
->>> c1.first = 'drew'
->>> c1.first
+>>> n1.first = 'drew'
+>>> n1.first
 'drew'
->>> del c1.number
+>>> del n1.number
 Traceback (most recent call last):
 ...
 TypeError: can't delete numeric/char attribute
->>> c1.number=2
->>> c1.number
+>>> n1.number=2
+>>> n1.number
 2
->>> c1.first = 42
->>> c1.name()
+>>> n1.first = 42
+>>> n1.name()
 '42 tell'
->>> c2 = custom2.Custom()
->>> c2.name()
+>>> n2 = noddy2.Noddy()
+>>> n2.name()
 ' '
->>> c2.first
+>>> n2.first
 ''
->>> c2.last
+>>> n2.last
 ''
->>> del c2.first
->>> c2.first
+>>> del n2.first
+>>> n2.first
 Traceback (most recent call last):
 ...
 AttributeError: first
->>> c2.first
+>>> n2.first
 Traceback (most recent call last):
 ...
 AttributeError: first
->>> c2.name()
+>>> n2.name()
 Traceback (most recent call last):
   File "<stdin>", line 1, in ?
 AttributeError: first
->>> c2.number
+>>> n2.number
 0
->>> n3 = custom2.Custom('jim', 'fulton', 'waaa')
+>>> n3 = noddy2.Noddy('jim', 'fulton', 'waaa')
 Traceback (most recent call last):
   File "<stdin>", line 1, in ?
-TypeError: an integer is required (got type str)
->>> del c1
->>> del c2
+TypeError: an integer is required
+>>> del n1
+>>> del n2
 
 
-Custom 3
+Noddy 3
 
->>> import custom3
->>> c1 = custom3.Custom('jim', 'fulton', 42)
->>> c1 = custom3.Custom('jim', 'fulton', 42)
->>> c1.name()
+>>> import noddy3
+>>> n1 = noddy3.Noddy('jim', 'fulton', 42)
+>>> n1 = noddy3.Noddy('jim', 'fulton', 42)
+>>> n1.name()
 'jim fulton'
->>> del c1.first
+>>> del n1.first
 Traceback (most recent call last):
   File "<stdin>", line 1, in ?
 TypeError: Cannot delete the first attribute
->>> c1.first = 42
+>>> n1.first = 42
 Traceback (most recent call last):
   File "<stdin>", line 1, in ?
 TypeError: The first attribute value must be a string
->>> c1.first = 'will'
->>> c1.name()
+>>> n1.first = 'will'
+>>> n1.name()
 'will fulton'
->>> c2 = custom3.Custom()
->>> c2 = custom3.Custom()
->>> c2 = custom3.Custom()
->>> n3 = custom3.Custom('jim', 'fulton', 'waaa')
+>>> n2 = noddy3.Noddy()
+>>> n2 = noddy3.Noddy()
+>>> n2 = noddy3.Noddy()
+>>> n3 = noddy3.Noddy('jim', 'fulton', 'waaa')
 Traceback (most recent call last):
   File "<stdin>", line 1, in ?
-TypeError: an integer is required (got type str)
->>> del c1
->>> del c2
+TypeError: an integer is required
+>>> del n1
+>>> del n2
 
-Custom 4
+Noddy 4
 
->>> import custom4
->>> c1 = custom4.Custom('jim', 'fulton', 42)
->>> c1.first
+>>> import noddy4
+>>> n1 = noddy4.Noddy('jim', 'fulton', 42)
+>>> n1.first
 'jim'
->>> c1.last
+>>> n1.last
 'fulton'
->>> c1.number
+>>> n1.number
 42
->>> c1.name()
+>>> n1.name()
 'jim fulton'
->>> c1.first = 'will'
->>> c1.name()
+>>> n1.first = 'will'
+>>> n1.name()
 'will fulton'
->>> c1.last = 'tell'
->>> c1.name()
+>>> n1.last = 'tell'
+>>> n1.name()
 'will tell'
->>> del c1.first
+>>> del n1.first
+>>> n1.name()
 Traceback (most recent call last):
 ...
-TypeError: Cannot delete the first attribute
->>> c1.name()
-'will tell'
->>> c1.first = 'drew'
->>> c1.first
+AttributeError: first
+>>> n1.first
+Traceback (most recent call last):
+...
+AttributeError: first
+>>> n1.first = 'drew'
+>>> n1.first
 'drew'
->>> del c1.number
+>>> del n1.number
 Traceback (most recent call last):
 ...
 TypeError: can't delete numeric/char attribute
->>> c1.number=2
->>> c1.number
+>>> n1.number=2
+>>> n1.number
 2
->>> c1.first = 42
-Traceback (most recent call last):
-...
-TypeError: The first attribute value must be a string
->>> c1.name()
-'drew tell'
->>> c2 = custom4.Custom()
->>> c2 = custom4.Custom()
->>> c2 = custom4.Custom()
->>> c2 = custom4.Custom()
->>> c2.name()
+>>> n1.first = 42
+>>> n1.name()
+'42 tell'
+>>> n2 = noddy4.Noddy()
+>>> n2 = noddy4.Noddy()
+>>> n2 = noddy4.Noddy()
+>>> n2 = noddy4.Noddy()
+>>> n2.name()
 ' '
->>> c2.first
+>>> n2.first
 ''
->>> c2.last
+>>> n2.last
 ''
->>> c2.number
-0
->>> n3 = custom4.Custom('jim', 'fulton', 'waaa')
+>>> del n2.first
+>>> n2.first
 Traceback (most recent call last):
 ...
-TypeError: an integer is required (got type str)
+AttributeError: first
+>>> n2.first
+Traceback (most recent call last):
+...
+AttributeError: first
+>>> n2.name()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+AttributeError: first
+>>> n2.number
+0
+>>> n3 = noddy4.Noddy('jim', 'fulton', 'waaa')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in ?
+TypeError: an integer is required
 
 
 Test cyclic gc(?)
@@ -170,14 +183,15 @@ Test cyclic gc(?)
 >>> import gc
 >>> gc.disable()
 
->>> class Subclass(custom4.Custom): pass
-...
->>> s = Subclass()
->>> s.cycle = [s]
->>> s.cycle.append(s.cycle)
->>> x = object()
->>> s.x = x
->>> del s
+>>> x = []
+>>> l = [x]
+>>> n2.first = l
+>>> n2.first
+[[]]
+>>> l.append(n2)
+>>> del l
+>>> del n1
+>>> del n2
 >>> sys.getrefcount(x)
 3
 >>> ignore = gc.collect()
@@ -190,7 +204,7 @@ Test cyclic gc(?)
 import os
 import sys
 from distutils.util import get_platform
-PLAT_SPEC = "%s-%d.%d" % (get_platform(), *sys.version_info[:2])
+PLAT_SPEC = "%s-%s" % (get_platform(), sys.version[0:3])
 src = os.path.join("build", "lib.%s" % PLAT_SPEC)
 sys.path.append(src)
 

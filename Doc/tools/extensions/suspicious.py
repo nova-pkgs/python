@@ -115,12 +115,10 @@ class CheckSuspiciousMarkupBuilder(Builder):
     def finish(self):
         unused_rules = [rule for rule in self.rules if not rule.used]
         if unused_rules:
-            self.logger.warning(
-                'Found %s/%s unused rules: %s' % (
-                    len(unused_rules), len(self.rules),
-                    ''.join(repr(rule) for rule in unused_rules),
-                )
-            )
+            self.warn('Found %s/%s unused rules:' %
+                      (len(unused_rules), len(self.rules)))
+            for rule in unused_rules:
+                self.logger.info(repr(rule))
         return
 
     def check_issue(self, line, lineno, issue):
@@ -153,15 +151,14 @@ class CheckSuspiciousMarkupBuilder(Builder):
         self.any_issue = True
         self.write_log_entry(lineno, issue, text)
         if py3:
-            self.logger.warning('[%s:%d] "%s" found in "%-.120s"' %
-                                (self.docname, lineno, issue, text))
+            self.warn('[%s:%d] "%s" found in "%-.120s"' %
+                      (self.docname, lineno, issue, text))
         else:
-            self.logger.warning(
-                '[%s:%d] "%s" found in "%-.120s"' % (
-                    self.docname.encode(sys.getdefaultencoding(),'replace'),
-                    lineno,
-                    issue.encode(sys.getdefaultencoding(),'replace'),
-                    text.strip().encode(sys.getdefaultencoding(),'replace')))
+            self.warn('[%s:%d] "%s" found in "%-.120s"' % (
+                self.docname.encode(sys.getdefaultencoding(),'replace'),
+                lineno,
+                issue.encode(sys.getdefaultencoding(),'replace'),
+                text.strip().encode(sys.getdefaultencoding(),'replace')))
         self.app.statuscode = 1
 
     def write_log_entry(self, lineno, issue, text):

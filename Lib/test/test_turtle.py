@@ -1,6 +1,6 @@
 import pickle
 import unittest
-from test import support
+from test import test_support as support
 
 turtle = support.import_module('turtle')
 Vec2D = turtle.Vec2D
@@ -159,26 +159,23 @@ class TestVec2D(VectorComparisonMixin, unittest.TestCase):
     def test_pickling(self):
         vec = Vec2D(0.5, 2)
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            with self.subTest(proto=proto):
-                pickled = pickle.dumps(vec, protocol=proto)
-                unpickled = pickle.loads(pickled)
-                self.assertEqual(unpickled, vec)
-                self.assertIsInstance(unpickled, Vec2D)
+            pickled = pickle.dumps(vec, protocol=proto)
+            unpickled = pickle.loads(pickled)
+            self.assertEqual(unpickled, vec)
+            self.assertIsInstance(unpickled, Vec2D)
 
     def _assert_arithmetic_cases(self, test_cases, lambda_operator):
         for test_case in test_cases:
-            with self.subTest(case=test_case):
+            ((first, second), expected) = test_case
 
-                ((first, second), expected) = test_case
+            op1 = Vec2D(*first)
+            op2 = Vec2D(*second)
 
-                op1 = Vec2D(*first)
-                op2 = Vec2D(*second)
+            result = lambda_operator(op1, op2)
 
-                result = lambda_operator(op1, op2)
+            expected = Vec2D(*expected)
 
-                expected = Vec2D(*expected)
-
-                self.assertVectorsAlmostEqual(result, expected)
+            self.assertVectorsAlmostEqual(result, expected)
 
     def test_vector_addition(self):
 
@@ -241,11 +238,10 @@ class TestVec2D(VectorComparisonMixin, unittest.TestCase):
         ]
 
         for case in cases:
-            with self.subTest(case=case):
-                (vec, rot), expected = case
-                vec = Vec2D(*vec)
-                got = vec.rotate(rot)
-                self.assertVectorsAlmostEqual(got, expected)
+            (vec, rot), expected = case
+            vec = Vec2D(*vec)
+            got = vec.rotate(rot)
+            self.assertVectorsAlmostEqual(got, expected)
 
 
 class TestTNavigator(VectorComparisonMixin, unittest.TestCase):
@@ -432,5 +428,8 @@ class TestTPen(unittest.TestCase):
         self.assertTrue(tpen.isvisible())
 
 
+def test_main():
+    support.run_unittest(TurtleConfigTest, TestVec2D, TestTNavigator, TestTPen)
+
 if __name__ == '__main__':
-    unittest.main()
+    test_main()

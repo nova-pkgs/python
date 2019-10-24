@@ -899,7 +899,7 @@ Here are all of the changes that Python 2.4 makes to the core Python language.
   (Contributed by Nick Coghlan.)
 
 * The ``eval(expr, globals, locals)`` and ``execfile(filename, globals,
-  locals)`` functions and the ``exec`` statement now accept any mapping type
+  locals)`` functions and the :keyword:`exec` statement now accept any mapping type
   for the *locals* parameter.  Previously this had to be a regular Python
   dictionary.  (Contributed by Raymond Hettinger.)
 
@@ -998,7 +998,7 @@ complete list of changes, or look through the CVS logs for all the details.
   that lets you perform a limited number of passes through the polling loop.  The
   default is still to loop forever.
 
-* The :mod:`base64` module now has more complete :rfc:`3548` support for Base64,
+* The :mod:`base64` module now has more complete RFC 3548 support for Base64,
   Base32, and Base16 encoding and decoding, including optional case folding and
   optional alternative alphabets. (Contributed by Barry Warsaw.)
 
@@ -1282,7 +1282,7 @@ complete list of changes, or look through the CVS logs for all the details.
   interface, accessed only by :mod:`atexit`.
 
 * The :mod:`tarfile` module now generates GNU-format tar files by default.
-  (Contributed by Lars Gustäbel.)
+  (Contributed by Lars Gustaebel.)
 
 * The :mod:`threading` module now has an elegantly simple way to support
   thread-local data.  The module contains a :class:`local` class whose attribute

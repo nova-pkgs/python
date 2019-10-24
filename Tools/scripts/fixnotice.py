@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 """(Ostensibly) fix copyright notices in files.
 
@@ -50,9 +50,9 @@ VERBOSE = 0
 
 
 def usage(code, msg=''):
-    print(__doc__ % globals())
+    print __doc__ % globals()
     if msg:
-        print(msg)
+        print msg
     sys.exit(code)
 
 
@@ -62,7 +62,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'hv',
                                    ['help', 'oldnotice=', 'newnotice=',
                                     'dry-run', 'verbose'])
-    except getopt.error as msg:
+    except getopt.error, msg:
         usage(1, msg)
 
     for opt, arg in opts:
@@ -73,34 +73,38 @@ def main():
         elif opt == '--dry-run':
             DRYRUN = 1
         elif opt == '--oldnotice':
-            with open(arg) as fp:
-                OLD_NOTICE = fp.read()
+            fp = open(arg)
+            OLD_NOTICE = fp.read()
+            fp.close()
         elif opt == '--newnotice':
-            with open(arg) as fp:
-                NEW_NOTICE = fp.read()
+            fp = open(arg)
+            NEW_NOTICE = fp.read()
+            fp.close()
 
     for arg in args:
         process(arg)
 
 
 def process(file):
-    with open(file) as f:
-        data = f.read()
+    f = open(file)
+    data = f.read()
+    f.close()
     i = data.find(OLD_NOTICE)
     if i < 0:
         if VERBOSE:
-            print('no change:', file)
+            print 'no change:', file
         return
     elif DRYRUN or VERBOSE:
-        print('   change:', file)
+        print '   change:', file
     if DRYRUN:
         # Don't actually change the file
         return
     data = data[:i] + NEW_NOTICE + data[i+len(OLD_NOTICE):]
     new = file + ".new"
     backup = file + ".bak"
-    with open(new, "w") as f:
-        f.write(data)
+    f = open(new, "w")
+    f.write(data)
+    f.close()
     os.rename(file, backup)
     os.rename(new, file)
 

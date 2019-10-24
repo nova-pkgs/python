@@ -3,9 +3,9 @@
 
 .. module:: fractions
    :synopsis: Rational numbers.
-
 .. moduleauthor:: Jeffrey Yasskin <jyasskin at gmail.com>
 .. sectionauthor:: Jeffrey Yasskin <jyasskin at gmail.com>
+.. versionadded:: 2.6
 
 **Source code:** :source:`Lib/fractions.py`
 
@@ -78,28 +78,12 @@ another rational number, or from a string.
    :class:`numbers.Rational`, and implements all of the methods and
    operations from that class.  :class:`Fraction` instances are hashable,
    and should be treated as immutable.  In addition,
-   :class:`Fraction` has the following properties and methods:
+   :class:`Fraction` has the following methods:
 
-   .. versionchanged:: 3.2
+   .. versionchanged:: 2.7
       The :class:`Fraction` constructor now accepts :class:`float` and
       :class:`decimal.Decimal` instances.
 
-
-   .. attribute:: numerator
-
-      Numerator of the Fraction in lowest term.
-
-   .. attribute:: denominator
-
-      Denominator of the Fraction in lowest term.
-
-
-   .. method:: as_integer_ratio()
-
-      Return a tuple of two integers, whose ratio is equal
-      to the Fraction and with a positive denominator.
-
-      .. versionadded:: 3.8
 
    .. method:: from_float(flt)
 
@@ -107,20 +91,16 @@ another rational number, or from a string.
       value of *flt*, which must be a :class:`float`. Beware that
       ``Fraction.from_float(0.3)`` is not the same value as ``Fraction(3, 10)``.
 
-      .. note::
-
-         From Python 3.2 onwards, you can also construct a
+      .. note:: From Python 2.7 onwards, you can also construct a
          :class:`Fraction` instance directly from a :class:`float`.
 
 
    .. method:: from_decimal(dec)
 
       This class method constructs a :class:`Fraction` representing the exact
-      value of *dec*, which must be a :class:`decimal.Decimal` instance.
+      value of *dec*, which must be a :class:`decimal.Decimal`.
 
-      .. note::
-
-         From Python 3.2 onwards, you can also construct a
+      .. note:: From Python 2.7 onwards, you can also construct a
          :class:`Fraction` instance directly from a :class:`decimal.Decimal`
          instance.
 
@@ -146,32 +126,6 @@ another rational number, or from a string.
          Fraction(11, 10)
 
 
-   .. method:: __floor__()
-
-      Returns the greatest :class:`int` ``<= self``.  This method can
-      also be accessed through the :func:`math.floor` function:
-
-        >>> from math import floor
-        >>> floor(Fraction(355, 113))
-        3
-
-
-   .. method:: __ceil__()
-
-      Returns the least :class:`int` ``>= self``.  This method can
-      also be accessed through the :func:`math.ceil` function.
-
-
-   .. method:: __round__()
-               __round__(ndigits)
-
-      The first version returns the nearest :class:`int` to ``self``,
-      rounding half to even. The second version rounds ``self`` to the
-      nearest multiple of ``Fraction(1, 10**ndigits)`` (logically, if
-      ``ndigits`` is negative), again rounding half toward even.  This
-      method can also be accessed through the :func:`round` function.
-
-
 .. function:: gcd(a, b)
 
    Return the greatest common divisor of the integers *a* and *b*.  If either
@@ -179,9 +133,6 @@ another rational number, or from a string.
    largest integer that divides both *a* and *b*.  ``gcd(a,b)`` has the same
    sign as *b* if *b* is nonzero; otherwise it takes the sign of *a*.  ``gcd(0,
    0)`` returns ``0``.
-
-   .. deprecated:: 3.5
-      Use :func:`math.gcd` instead.
 
 
 .. seealso::

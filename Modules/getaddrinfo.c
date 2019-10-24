@@ -129,14 +129,14 @@ static struct gai_afd {
 #define IN_LOOPBACKNET      127
 #endif
 
-static int get_name(const char *, struct gai_afd *,
+static int get_name Py_PROTO((const char *, struct gai_afd *,
                           struct addrinfo **, char *, struct addrinfo *,
-                          int);
-static int get_addr(const char *, int, struct addrinfo **,
-                        struct addrinfo *, int);
-static int str_isnumber(const char *);
+                          int));
+static int get_addr Py_PROTO((const char *, int, struct addrinfo **,
+                        struct addrinfo *, int));
+static int str_isnumber Py_PROTO((const char *));
 
-static const char * const ai_errlist[] = {
+static char *ai_errlist[] = {
     "success.",
     "address family for hostname not supported.",       /* EAI_ADDRFAMILY */
     "temporary failure in name resolution.",            /* EAI_AGAIN      */
@@ -198,7 +198,7 @@ if (pai->ai_flags & AI_CANONNAME) {\
 
 #define ERR(err) { error = (err); goto bad; }
 
-const char *
+char *
 gai_strerror(int ecode)
 {
     if (ecode < 0 || ecode > EAI_MAX)
@@ -251,7 +251,7 @@ getaddrinfo(const char*hostname, const char*servname,
     if (firsttime) {
         /* translator hack */
         {
-            const char *q = getenv("GAI");
+            char *q = getenv("GAI");
             if (q && inet_pton(AF_INET6, q, &faith_prefix) == 1)
                 translate = YES;
         }
@@ -342,7 +342,7 @@ getaddrinfo(const char*hostname, const char*servname,
             port = htons((u_short)atoi(servname));
         } else {
             struct servent *sp;
-            const char *proto;
+            char *proto;
 
             proto = NULL;
             switch (pai->ai_socktype) {

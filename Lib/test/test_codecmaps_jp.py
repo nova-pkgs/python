@@ -3,6 +3,7 @@
 #   Codec mapping tests for Japanese encodings
 #
 
+from test import test_support
 from test import multibytecodec_support
 import unittest
 
@@ -11,14 +12,14 @@ class TestCP932Map(multibytecodec_support.TestBase_Mapping,
     encoding = 'cp932'
     mapfileurl = 'http://www.pythontest.net/unicode/CP932.TXT'
     supmaps = [
-        (b'\x80', '\u0080'),
-        (b'\xa0', '\uf8f0'),
-        (b'\xfd', '\uf8f1'),
-        (b'\xfe', '\uf8f2'),
-        (b'\xff', '\uf8f3'),
+        ('\x80', u'\u0080'),
+        ('\xa0', u'\uf8f0'),
+        ('\xfd', u'\uf8f1'),
+        ('\xfe', u'\uf8f2'),
+        ('\xff', u'\uf8f3'),
     ]
     for i in range(0xa1, 0xe0):
-        supmaps.append((bytes([i]), chr(i+0xfec0)))
+        supmaps.append((chr(i), unichr(i+0xfec0)))
 
 
 class TestEUCJPCOMPATMap(multibytecodec_support.TestBase_Mapping,
@@ -34,12 +35,12 @@ class TestSJISCOMPATMap(multibytecodec_support.TestBase_Mapping,
     mapfilename = 'SHIFTJIS.TXT'
     mapfileurl = 'http://www.pythontest.net/unicode/SHIFTJIS.TXT'
     pass_enctest = [
-        (b'\x81_', '\\'),
+        ('\x81_', u'\\'),
     ]
     pass_dectest = [
-        (b'\\', '\xa5'),
-        (b'~', '\u203e'),
-        (b'\x81_', '\\'),
+        ('\\', u'\xa5'),
+        ('~', u'\u203e'),
+        ('\x81_', u'\\'),
     ]
 
 class TestEUCJISX0213Map(multibytecodec_support.TestBase_Mapping,
@@ -56,5 +57,8 @@ class TestSJISX0213Map(multibytecodec_support.TestBase_Mapping,
     mapfileurl = 'http://www.pythontest.net/unicode/SHIFT_JISX0213.TXT'
 
 
+def test_main():
+    test_support.run_unittest(__name__)
+
 if __name__ == "__main__":
-    unittest.main()
+    test_main()

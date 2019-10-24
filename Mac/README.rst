@@ -155,7 +155,7 @@ following combinations of SDKs and universal-archs flavors are available:
 
   * 10.15 and later SDKs support ``intel-64`` only
 
-The makefile for a framework build will also install ``python3.x-32``
+The makefile for a framework build will also install ``python2.7-32``
 binaries when the universal architecture includes at least one 32-bit
 architecture (that is, for all flavors but ``64-bit`` and ``intel-64``).
 
@@ -174,7 +174,7 @@ Using ``arch`` is not a perfect solution as the selected architecture will
 not automatically carry through to subprocesses launched by programs and tests
 under that Python.  If you want to ensure that Python interpreters launched in
 subprocesses also run in 32-bit-mode if the main interpreter does, use
-a ``python3.x-32`` binary and use the value of ``sys.executable`` as the
+a ``python2.7-32`` binary and use the value of ``sys.executable`` as the
 ``subprocess`` ``Popen`` executable value.
 
 Building and using a framework-based Python on macOS
@@ -275,10 +275,19 @@ GUI-things. Keep the ``Option`` key depressed while dragging or double-clicking
 a script to set runtime options. These options can be set persistently
 through Python Launcher's preferences dialog.
 
-The program ``pythonx.x`` runs python scripts from the command line.
-Previously, various compatibility aliases were also installed, including
-``pythonwx.x`` which in early releases of Python on macOS was required to run
-GUI programs.  As of 3.4.0, the ``pythonwx.x`` aliases are no longer installed.
+"Build Applet.app" creates an applet from a Python script. Drop the script on it
+and out comes a full-featured Mac OS X application.  "Build Applet.app" is now
+deprecated and has been removed in Python 3.  As of OS X 10.8, Xcode 4 no
+longer supplies the headers for the deprecated QuickDraw APIs used by
+the EasyDialogs module making BuildApplet unusable as an app.  It will
+not be built by the Mac/Makefile in this case.
+
+The program ``pythonx.x`` runs python scripts from the command line.  Various
+compatibility aliases are also installed, including ``pythonwx.x`` which
+in early releases of Python on OS X was required to run GUI programs.  In
+current releases, the ``pythonx.x`` and ``pythonwx.x`` commands are identical
+and the use of ``pythonwx.x`` should be avoided as it has been removed in
+current versions of Python 3.
 
 How do I create a binary distribution?
 ======================================
@@ -286,7 +295,7 @@ How do I create a binary distribution?
 Download and unpack the source release from http://www.python.org/download/.
 Go to the directory ``Mac/BuildScript``. There you will find a script
 ``build-installer.py`` that does all the work. This will download and build
-a number of 3rd-party libaries, configures and builds a framework Python,
+a number of 3rd-party libraries, configures and builds a framework Python,
 installs it, creates the installer package files and then packs this in a
 DMG image.  The script also builds an HTML copy of the current Python
 documentation set for this release for inclusion in the framework.  The
